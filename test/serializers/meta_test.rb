@@ -15,7 +15,8 @@ module ActiveModel
           @blog,
           adapter: :json,
           serializer: AlternateBlogSerializer,
-          meta: { total: 10 }).as_json
+          meta: { total: 10 }
+        ).as_json
         expected = {
           blog: {
             id: 1,
@@ -65,7 +66,8 @@ module ActiveModel
           @blog,
           adapter: :attributes,
           serializer: AlternateBlogSerializer,
-          meta: { total: 10 }).as_json
+          meta: { total: 10 }
+        ).as_json
         expected = {
           id: 1,
           title: 'AMS Hints'
@@ -79,7 +81,8 @@ module ActiveModel
           adapter: :json,
           serializer: AlternateBlogSerializer,
           meta: { total: 10 },
-          meta_key: 'haha_meta').as_json
+          meta_key: 'haha_meta'
+        ).as_json
         expected = {
           blog: {
             id: 1,
@@ -92,31 +95,31 @@ module ActiveModel
         assert_equal(expected, actual)
       end
 
-      def test_meta_key_is_used_with_json_api
+      def test_meta_key_is_not_used_with_json_api
         actual = ActiveModelSerializers::SerializableResource.new(
           @blog,
           adapter: :json_api,
           serializer: AlternateBlogSerializer,
           meta: { total: 10 },
-          meta_key: 'haha_meta').as_json
+          meta_key: 'haha_meta'
+        ).as_json
         expected = {
           data: {
             id: '1',
             type: 'blogs',
             attributes: { title: 'AMS Hints' }
           },
-          'haha_meta' => { total: 10 }
+          meta: { total: 10 }
         }
         assert_equal(expected, actual)
       end
 
-      def test_meta_key_is_not_present_when_blank_object_with_json_api
+      def test_meta_key_is_not_present_when_empty_hash_with_json_api
         actual = ActiveModelSerializers::SerializableResource.new(
           @blog,
           adapter: :json_api,
           serializer: AlternateBlogSerializer,
-          meta: {},
-          meta_key: 'haha_meta'
+          meta: {}
         ).as_json
         expected = {
           data: {
@@ -133,8 +136,7 @@ module ActiveModel
           @blog,
           adapter: :json_api,
           serializer: AlternateBlogSerializer,
-          meta: '',
-          meta_key: 'haha_meta'
+          meta: ''
         ).as_json
         expected = {
           data: {
@@ -150,7 +152,8 @@ module ActiveModel
         actual = ActiveModelSerializers::SerializableResource.new(
           [@blog],
           adapter: :attributes,
-          meta: { total: 10 }).as_json
+          meta: { total: 10 }
+        ).as_json
         expected = [{
           id: 1,
           name: 'AMS Hints',
@@ -172,7 +175,8 @@ module ActiveModel
           [@blog],
           adapter: :json,
           meta: { total: 10 },
-          meta_key: 'haha_meta').as_json
+          meta_key: 'haha_meta'
+        ).as_json
         expected = {
           blogs: [{
             id: 1,

@@ -36,13 +36,13 @@ module ActiveModelSerializers
           belongs_to :author
         end
 
-        def mock_request(key_transform = nil)
+        def mock_request(transform = nil)
           context = Minitest::Mock.new
           context.expect(:request_url, URI)
           context.expect(:query_parameters, {})
-          context.expect(:key_transform, key_transform)
           context.expect(:url_helpers, Rails.application.routes.url_helpers)
           @options = {}
+          @options[:key_transform] = transform if transform
           @options[:serialization_context] = context
         end
 
@@ -64,11 +64,11 @@ module ActiveModelSerializers
           @comment2.post = @post
         end
 
-        def test_success_document_key_transform_default
+        def test_success_document_transform_default
           mock_request
           serializer = PostSerializer.new(@post)
-          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-          result = adapter.serializable_hash(@options)
+          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+          result = adapter.serializable_hash
           assert_equal({
             data: {
               id: '1337',
@@ -86,7 +86,8 @@ module ActiveModelSerializers
                   data: [
                     { id: '7', type: 'comments' },
                     { id: '12', type: 'comments' }
-                ] }
+                  ]
+                }
               },
               links: {
                 self: 'http://example.com/posts/1337',
@@ -98,12 +99,12 @@ module ActiveModelSerializers
           }, result)
         end
 
-        def test_success_document_key_transform_global_config
+        def test_success_document_transform_global_config
           mock_request
           result = with_config(key_transform: :camel_lower) do
             serializer = PostSerializer.new(@post)
-            adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-            adapter.serializable_hash(@options)
+            adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+            adapter.serializable_hash
           end
           assert_equal({
             data: {
@@ -122,7 +123,8 @@ module ActiveModelSerializers
                   data: [
                     { id: '7', type: 'comments' },
                     { id: '12', type: 'comments' }
-                ] }
+                  ]
+                }
               },
               links: {
                 self: 'http://example.com/posts/1337',
@@ -134,17 +136,17 @@ module ActiveModelSerializers
           }, result)
         end
 
-        def test_success_doc_key_transform_serialization_ctx_overrides_global
+        def test_success_doc_transform_serialization_ctx_overrides_global
           mock_request(:camel)
           result = with_config(key_transform: :camel_lower) do
             serializer = PostSerializer.new(@post)
-            adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-            adapter.serializable_hash(@options)
+            adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+            adapter.serializable_hash
           end
           assert_equal({
             Data: {
               Id: '1337',
-              Type: 'posts',
+              Type: 'Posts',
               Attributes: {
                 Title: 'Title 1',
                 Body: 'Body 1',
@@ -152,13 +154,14 @@ module ActiveModelSerializers
               },
               Relationships: {
                 Author: {
-                  Data: { Id: '1', Type: 'authors' }
+                  Data: { Id: '1', Type: 'Authors' }
                 },
                 Comments: {
                   Data: [
-                    { Id: '7', Type: 'comments' },
-                    { Id: '12', Type: 'comments' }
-                ] }
+                    { Id: '7', Type: 'Comments' },
+                    { Id: '12', Type: 'Comments' }
+                  ]
+                }
               },
               Links: {
                 Self: 'http://example.com/posts/1337',
@@ -170,11 +173,11 @@ module ActiveModelSerializers
           }, result)
         end
 
-        def test_success_document_key_transform_dashed
-          mock_request(:dashed)
+        def test_success_document_transform_dash
+          mock_request(:dash)
           serializer = PostSerializer.new(@post)
-          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-          result = adapter.serializable_hash(@options)
+          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+          result = adapter.serializable_hash
           assert_equal({
             data: {
               id: '1337',
@@ -192,7 +195,8 @@ module ActiveModelSerializers
                   data: [
                     { id: '7', type: 'comments' },
                     { id: '12', type: 'comments' }
-                ] }
+                  ]
+                }
               },
               links: {
                 self: 'http://example.com/posts/1337',
@@ -204,11 +208,11 @@ module ActiveModelSerializers
           }, result)
         end
 
-        def test_success_document_key_transform_unaltered
+        def test_success_document_transform_unaltered
           mock_request(:unaltered)
           serializer = PostSerializer.new(@post)
-          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-          result = adapter.serializable_hash(@options)
+          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+          result = adapter.serializable_hash
           assert_equal({
             data: {
               id: '1337',
@@ -226,7 +230,8 @@ module ActiveModelSerializers
                   data: [
                     { id: '7', type: 'comments' },
                     { id: '12', type: 'comments' }
-                ] }
+                  ]
+                }
               },
               links: {
                 self: 'http://example.com/posts/1337',
@@ -238,24 +243,25 @@ module ActiveModelSerializers
           }, result)
         end
 
-        def test_success_document_key_transform_undefined
+        def test_success_document_transform_undefined
           mock_request(:zoot)
           serializer = PostSerializer.new(@post)
-          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-          assert_raises NoMethodError do
-            adapter.serializable_hash(@options)
+          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+          exception = assert_raises NoMethodError do
+            adapter.serializable_hash
           end
+          assert_match(/undefined method.*zoot/, exception.message)
         end
 
-        def test_success_document_key_transform_camel
+        def test_success_document_transform_camel
           mock_request(:camel)
           serializer = PostSerializer.new(@post)
-          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-          result = adapter.serializable_hash(@options)
+          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+          result = adapter.serializable_hash
           assert_equal({
             Data: {
               Id: '1337',
-              Type: 'posts',
+              Type: 'Posts',
               Attributes: {
                 Title: 'Title 1',
                 Body: 'Body 1',
@@ -263,13 +269,14 @@ module ActiveModelSerializers
               },
               Relationships: {
                 Author: {
-                  Data: { Id: '1', Type: 'authors' }
+                  Data: { Id: '1', Type: 'Authors' }
                 },
                 Comments: {
                   Data: [
-                    { Id: '7', Type: 'comments' },
-                    { Id: '12', Type: 'comments' }
-                ] }
+                    { Id: '7', Type: 'Comments' },
+                    { Id: '12', Type: 'Comments' }
+                  ]
+                }
               },
               Links: {
                 Self: 'http://example.com/posts/1337',
@@ -281,11 +288,11 @@ module ActiveModelSerializers
           }, result)
         end
 
-        def test_success_document_key_transform_camel_lower
+        def test_success_document_transform_camel_lower
           mock_request(:camel_lower)
           serializer = PostSerializer.new(@post)
-          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-          result = adapter.serializable_hash(@options)
+          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+          result = adapter.serializable_hash
           assert_equal({
             data: {
               id: '1337',
@@ -303,7 +310,8 @@ module ActiveModelSerializers
                   data: [
                     { id: '7', type: 'comments' },
                     { id: '12', type: 'comments' }
-                ] }
+                  ]
+                }
               },
               links: {
                 self: 'http://example.com/posts/1337',
@@ -315,109 +323,106 @@ module ActiveModelSerializers
           }, result)
         end
 
-        def test_error_document_key_transform_default
+        def test_error_document_transform_default
           mock_request
           resource = ModelWithErrors.new
           resource.errors.add(:published_at, 'must be in the future')
           resource.errors.add(:title, 'must be longer')
           serializer = ActiveModel::Serializer::ErrorSerializer.new(resource)
-          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-          result = adapter.serializable_hash(@options)
-          expected_errors_object =
-            { :errors =>
-              [
-                {
-                  :source => { :pointer => '/data/attributes/published_at' },
-                  :detail => 'must be in the future' },
-                {
-                  :source => { :pointer => '/data/attributes/title' },
-                  :detail => 'must be longer'
-                }
-              ]
-            }
+          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+          result = adapter.serializable_hash
+          expected_errors_object = {
+            :errors => [
+              {
+                :source => { :pointer => '/data/attributes/published-at' },
+                :detail => 'must be in the future'
+              },
+              {
+                :source => { :pointer => '/data/attributes/title' },
+                :detail => 'must be longer'
+              }
+            ]
+          }
           assert_equal expected_errors_object, result
         end
 
-        def test_error_document_key_transform_global_config
+        def test_error_document_transform_global_config
           mock_request
           result = with_config(key_transform: :camel) do
             resource = ModelWithErrors.new
             resource.errors.add(:published_at, 'must be in the future')
             resource.errors.add(:title, 'must be longer')
             serializer = ActiveModel::Serializer::ErrorSerializer.new(resource)
-            adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-            adapter.serializable_hash(@options)
+            adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+            adapter.serializable_hash
           end
-          expected_errors_object =
-            { :Errors =>
-              [
-                {
-                  :Source => { :Pointer => '/data/attributes/published_at' },
-                  :Detail => 'must be in the future'
-                },
-                {
-                  :Source => { :Pointer => '/data/attributes/title' },
-                  :Detail => 'must be longer'
-                }
-              ]
-            }
+          expected_errors_object = {
+            :Errors => [
+              {
+                :Source => { :Pointer => '/data/attributes/PublishedAt' },
+                :Detail => 'must be in the future'
+              },
+              {
+                :Source => { :Pointer => '/data/attributes/Title' },
+                :Detail => 'must be longer'
+              }
+            ]
+          }
           assert_equal expected_errors_object, result
         end
 
-        def test_error_document_key_transform_serialization_ctx_overrides_global
+        def test_error_document_transform_serialization_ctx_overrides_global
           mock_request(:camel)
           result = with_config(key_transform: :camel_lower) do
             resource = ModelWithErrors.new
             resource.errors.add(:published_at, 'must be in the future')
             resource.errors.add(:title, 'must be longer')
             serializer = ActiveModel::Serializer::ErrorSerializer.new(resource)
-            adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-            adapter.serializable_hash(@options)
+            adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+            adapter.serializable_hash
           end
-          expected_errors_object =
-            { :Errors =>
-              [
-                {
-                  :Source => { :Pointer => '/data/attributes/published_at' },
-                  :Detail => 'must be in the future'
-                },
-                {
-                  :Source => { :Pointer => '/data/attributes/title' },
-                  :Detail => 'must be longer'
-                }
-              ]
-            }
+          expected_errors_object = {
+            :Errors => [
+              {
+                :Source => { :Pointer => '/data/attributes/PublishedAt' },
+                :Detail => 'must be in the future'
+              },
+              {
+                :Source => { :Pointer => '/data/attributes/Title' },
+                :Detail => 'must be longer'
+              }
+            ]
+          }
           assert_equal expected_errors_object, result
         end
 
-        def test_error_document_key_transform_dashed
-          mock_request(:dashed)
+        def test_error_document_transform_dash
+          mock_request(:dash)
 
           resource = ModelWithErrors.new
           resource.errors.add(:published_at, 'must be in the future')
           resource.errors.add(:title, 'must be longer')
 
           serializer = ActiveModel::Serializer::ErrorSerializer.new(resource)
-          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-          result = adapter.serializable_hash(@options)
+          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+          result = adapter.serializable_hash
 
-          expected_errors_object =
-            { :errors =>
-              [
-                {
-                  :source => { :pointer => '/data/attributes/published_at' },
-                  :detail => 'must be in the future'
-                },
-                {
-                  :source => { :pointer => '/data/attributes/title' },
-                  :detail => 'must be longer'
-                }
-              ]
+          expected_errors_object = {
+            :errors => [
+              {
+                :source => { :pointer => '/data/attributes/published-at' },
+                :detail => 'must be in the future'
+              },
+              {
+                :source => { :pointer => '/data/attributes/title' },
+                :detail => 'must be longer'
+              }
+            ]
           }
           assert_equal expected_errors_object, result
         end
 
-        def test_error_document_key_transform_unaltered
+        def test_error_document_transform_unaltered
           mock_request(:unaltered)
 
           resource = ModelWithErrors.new
@@ -425,20 +430,19 @@ module ActiveModelSerializers
           resource.errors.add(:title, 'must be longer')
 
           serializer = ActiveModel::Serializer::ErrorSerializer.new(resource)
-          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-          result = adapter.serializable_hash(@options)
+          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+          result = adapter.serializable_hash
 
-          expected_errors_object =
-            { :errors =>
-              [
-                { :source => { :pointer => '/data/attributes/published_at' }, :detail => 'must be in the future' },
-                { :source => { :pointer => '/data/attributes/title' }, :detail => 'must be longer' }
-              ]
+          expected_errors_object = {
+            :errors => [
+              { :source => { :pointer => '/data/attributes/published_at' }, :detail => 'must be in the future' },
+              { :source => { :pointer => '/data/attributes/title' }, :detail => 'must be longer' }
+            ]
           }
           assert_equal expected_errors_object, result
         end
 
-        def test_error_document_key_transform_undefined
+        def test_error_document_transform_undefined
           mock_request(:krazy)
 
           resource = ModelWithErrors.new
@@ -446,14 +450,15 @@ module ActiveModelSerializers
           resource.errors.add(:title, 'must be longer')
 
           serializer = ActiveModel::Serializer::ErrorSerializer.new(resource)
-          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
+          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
 
-          assert_raises NoMethodError do
-            adapter.serializable_hash(@options)
+          exception = assert_raises NoMethodError do
+            adapter.serializable_hash
           end
+          assert_match(/undefined method.*krazy/, exception.message)
         end
 
-        def test_error_document_key_transform_camel
+        def test_error_document_transform_camel
           mock_request(:camel)
 
           resource = ModelWithErrors.new
@@ -461,20 +466,19 @@ module ActiveModelSerializers
           resource.errors.add(:title, 'must be longer')
 
           serializer = ActiveModel::Serializer::ErrorSerializer.new(resource)
-          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-          result = adapter.serializable_hash(@options)
+          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+          result = adapter.serializable_hash
 
-          expected_errors_object =
-            { :Errors =>
-              [
-                { :Source => { :Pointer => '/data/attributes/published_at' }, :Detail => 'must be in the future' },
-                { :Source => { :Pointer => '/data/attributes/title' }, :Detail => 'must be longer' }
-              ]
+          expected_errors_object = {
+            :Errors => [
+              { :Source => { :Pointer => '/data/attributes/PublishedAt' }, :Detail => 'must be in the future' },
+              { :Source => { :Pointer => '/data/attributes/Title' }, :Detail => 'must be longer' }
+            ]
           }
           assert_equal expected_errors_object, result
         end
 
-        def test_error_document_key_transform_camel_lower
+        def test_error_document_transform_camel_lower
           mock_request(:camel_lower)
 
           resource = ModelWithErrors.new
@@ -482,15 +486,14 @@ module ActiveModelSerializers
           resource.errors.add(:title, 'must be longer')
 
           serializer = ActiveModel::Serializer::ErrorSerializer.new(resource)
-          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer)
-          result = adapter.serializable_hash(@options)
+          adapter = ActiveModelSerializers::Adapter::JsonApi.new(serializer, @options)
+          result = adapter.serializable_hash
 
-          expected_errors_object =
-            { :errors =>
-              [
-                { :source => { :pointer => '/data/attributes/published_at' }, :detail => 'must be in the future' },
-                { :source => { :pointer => '/data/attributes/title' }, :detail => 'must be longer' }
-              ]
+          expected_errors_object = {
+            :errors => [
+              { :source => { :pointer => '/data/attributes/publishedAt' }, :detail => 'must be in the future' },
+              { :source => { :pointer => '/data/attributes/title' }, :detail => 'must be longer' }
+            ]
           }
           assert_equal expected_errors_object, result
         end

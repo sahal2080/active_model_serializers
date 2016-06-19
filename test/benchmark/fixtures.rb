@@ -1,55 +1,116 @@
 Rails.configuration.serializers = []
-class AuthorSerializer < ActiveModel::Serializer
-  attributes :id, :name
+class HasOneRelationshipSerializer < ActiveModel::Serializer
+  attributes :id, :first_name, :last_name
 
-  has_many :posts, embed: :ids
+  has_many :primary_resources, embed: :ids
   has_one :bio
 end
-Rails.configuration.serializers << AuthorSerializer
+Rails.configuration.serializers << HasOneRelationshipSerializer
 
-class BlogSerializer < ActiveModel::Serializer
+class VirtualAttributeSerializer < ActiveModel::Serializer
   attributes :id, :name
 end
-Rails.configuration.serializers << BlogSerializer
+Rails.configuration.serializers << VirtualAttributeSerializer
 
-class CommentSerializer < ActiveModel::Serializer
+class HasManyRelationshipSerializer < ActiveModel::Serializer
   attributes :id, :body
 
-  belongs_to :post
-  belongs_to :author
+  belongs_to :primary_resource
+  belongs_to :has_one_relationship
 end
-Rails.configuration.serializers << CommentSerializer
+Rails.configuration.serializers << HasManyRelationshipSerializer
 
-class PostSerializer < ActiveModel::Serializer
+class PrimaryResourceSerializer < ActiveModel::Serializer
   attributes :id, :title, :body
 
-  has_many :comments, serializer: CommentSerializer
-  belongs_to :blog, serializer: BlogSerializer
-  belongs_to :author, serializer: AuthorSerializer
+  has_many :has_many_relationships, serializer: HasManyRelationshipSerializer
+  belongs_to :virtual_attribute, serializer: VirtualAttributeSerializer
+  belongs_to :has_one_relationship, serializer: HasOneRelationshipSerializer
 
-  def blog
-    Blog.new(id: 999, name: 'Custom blog')
+  link(:primary_resource_has_one_relationships) { 'https://example.com/primary_resource_has_one_relationships' }
+
+  meta do
+    {
+      rating: 5,
+      favorite_count: 10
+    }
+  end
+
+  def virtual_attribute
+    VirtualAttribute.new(id: 999, name: 'Free-Range Virtual Attribute')
   end
 end
-Rails.configuration.serializers << PostSerializer
+Rails.configuration.serializers << PrimaryResourceSerializer
 
-class CachingAuthorSerializer < AuthorSerializer
-  cache key: 'writer', only: [:name], skip_digest: true
+class CachingHasOneRelationshipSerializer < HasOneRelationshipSerializer
+  cache key: 'writer', skip_digest: true
 end
-Rails.configuration.serializers << CachingAuthorSerializer
+Rails.configuration.serializers << CachingHasOneRelationshipSerializer
 
-class CachingCommentSerializer < CommentSerializer
+class CachingHasManyRelationshipSerializer < HasManyRelationshipSerializer
   cache expires_in: 1.day, skip_digest: true
 end
-Rails.configuration.serializers << CachingCommentSerializer
+Rails.configuration.serializers << CachingHasManyRelationshipSerializer
 
-class CachingPostSerializer < PostSerializer
-  cache key: 'post', expires_in: 0.1, skip_digest: true
-  belongs_to :blog, serializer: BlogSerializer
-  belongs_to :author, serializer: CachingAuthorSerializer
-  has_many :comments, serializer: CachingCommentSerializer
+# see https://github.com/rails-api/active_model_serializers/pull/1690/commits/68715b8f99bc29677e8a47bb3f305f23c077024b#r60344532
+class CachingPrimaryResourceSerializer < ActiveModel::Serializer
+  cache key: 'primary_resource', expires_in: 0.1, skip_digest: true
+
+  attributes :id, :title, :body
+
+  belongs_to :virtual_attribute, serializer: VirtualAttributeSerializer
+  belongs_to :has_one_relationship, serializer: CachingHasOneRelationshipSerializer
+  has_many :has_many_relationships, serializer: CachingHasManyRelationshipSerializer
+
+  link(:primary_resource_has_one_relationships) { 'https://example.com/primary_resource_has_one_relationships' }
+
+  meta do
+    {
+      rating: 5,
+      favorite_count: 10
+    }
+  end
+
+  def virtual_attribute
+    VirtualAttribute.new(id: 999, name: 'Free-Range Virtual Attribute')
+  end
 end
-Rails.configuration.serializers << CachingPostSerializer
+Rails.configuration.serializers << CachingPrimaryResourceSerializer
+
+class FragmentCachingHasOneRelationshipSerializer < HasOneRelationshipSerializer
+  cache key: 'writer', only: [:first_name, :last_name], skip_digest: true
+end
+Rails.configuration.serializers << FragmentCachingHasOneRelationshipSerializer
+
+class FragmentCachingHasManyRelationshipSerializer < HasManyRelationshipSerializer
+  cache expires_in: 1.day, except: [:body], skip_digest: true
+end
+Rails.configuration.serializers << CachingHasManyRelationshipSerializer
+
+# see https://github.com/rails-api/active_model_serializers/pull/1690/commits/68715b8f99bc29677e8a47bb3f305f23c077024b#r60344532
+class FragmentCachingPrimaryResourceSerializer < ActiveModel::Serializer
+  cache key: 'primary_resource', expires_in: 0.1, skip_digest: true
+
+  attributes :id, :title, :body
+
+  belongs_to :virtual_attribute, serializer: VirtualAttributeSerializer
+  belongs_to :has_one_relationship, serializer: FragmentCachingHasOneRelationshipSerializer
+  has_many :has_many_relationships, serializer: FragmentCachingHasManyRelationshipSerializer
+
+  link(:primary_resource_has_one_relationships) { 'https://example.com/primary_resource_has_one_relationships' }
+
+  meta do
+    {
+      rating: 5,
+      favorite_count: 10
+    }
+  end
+
+  def virtual_attribute
+    VirtualAttribute.new(id: 999, name: 'Free-Range Virtual Attribute')
+  end
+end
+Rails.configuration.serializers << FragmentCachingPrimaryResourceSerializer
 
 if ENV['ENABLE_ACTIVE_RECORD'] == 'true'
   require 'active_record'
@@ -58,47 +119,48 @@ if ENV['ENABLE_ACTIVE_RECORD'] == 'true'
   ActiveRecord::Schema.define do
     self.verbose = false
 
-    create_table :blogs, force: true do |t|
+    create_table :virtual_attributes, force: true do |t|
       t.string :name
       t.timestamps null: false
     end
-    create_table :authors, force: true do |t|
-      t.string :name
+    create_table :has_one_relationships, force: true do |t|
+      t.string :first_name
+      t.string :last_name
       t.timestamps null: false
     end
-    create_table :posts, force: true do |t|
+    create_table :primary_resources, force: true do |t|
       t.string :title
       t.text :body
-      t.references :author
-      t.references :blog
+      t.references :has_one_relationship
+      t.references :virtual_attribute
       t.timestamps null: false
     end
-    create_table :comments, force: true do |t|
+    create_table :has_many_relationships, force: true do |t|
       t.text :body
-      t.references :author
-      t.references :post
+      t.references :has_one_relationship
+      t.references :primary_resource
       t.timestamps null: false
     end
   end
 
-  class Comment < ActiveRecord::Base
-    belongs_to :author
-    belongs_to :post
+  class HasManyRelationship < ActiveRecord::Base
+    belongs_to :has_one_relationship
+    belongs_to :primary_resource
   end
 
-  class Author < ActiveRecord::Base
-    has_many :posts
-    has_many :comments
+  class HasOneRelationship < ActiveRecord::Base
+    has_many :primary_resources
+    has_many :has_many_relationships
   end
 
-  class Post < ActiveRecord::Base
-    has_many :comments
-    belongs_to :author
-    belongs_to :blog
+  class PrimaryResource < ActiveRecord::Base
+    has_many :has_many_relationships
+    belongs_to :has_one_relationship
+    belongs_to :virtual_attribute
   end
 
-  class Blog < ActiveRecord::Base
-    has_many :posts
+  class VirtualAttribute < ActiveRecord::Base
+    has_many :primary_resources
   end
 else
   # ActiveModelSerializers::Model is a convenient
@@ -139,19 +201,19 @@ else
     end
   end
 
-  class Comment < BenchmarkModel
+  class HasManyRelationship < BenchmarkModel
     attr_accessor :id, :body
   end
 
-  class Author < BenchmarkModel
-    attr_accessor :id, :name, :posts
+  class HasOneRelationship < BenchmarkModel
+    attr_accessor :id, :first_name, :last_name, :primary_resources
   end
 
-  class Post < BenchmarkModel
-    attr_accessor :id, :title, :body, :comments, :blog, :author
+  class PrimaryResource < BenchmarkModel
+    attr_accessor :id, :title, :body, :has_many_relationships, :virtual_attribute, :has_one_relationship
   end
 
-  class Blog < BenchmarkModel
+  class VirtualAttribute < BenchmarkModel
     attr_accessor :id, :name
   end
 end

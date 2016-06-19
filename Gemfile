@@ -44,10 +44,10 @@ end
 group :test do
   gem 'sqlite3',                          platform: (@windows_platforms + [:ruby])
   gem 'activerecord-jdbcsqlite3-adapter', platform: :jruby
-
   gem 'codeclimate-test-reporter', require: false
 end
 
 group :development, :test do
-  gem 'rubocop', '~> 0.36', require: false
+  gem 'rubocop', '~> 0.40.0', require: false
+  gem 'yard', require: false
 end

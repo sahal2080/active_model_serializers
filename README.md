@@ -24,17 +24,6 @@
   </tr>
 </table>
 
-
-## Documentation
-
-- [0.10 (master) Documentation](https://github.com/rails-api/active_model_serializers/tree/master)
-  - [![API Docs](http://img.shields.io/badge/yard-docs-blue.svg)](http://www.rubydoc.info/github/rails-api/active_model_serializers/v0.10.0.rc4)
-  - [Guides](docs)
-- [0.9 (0-9-stable) Documentation](https://github.com/rails-api/active_model_serializers/tree/0-9-stable)
-  - [![API Docs](http://img.shields.io/badge/yard-docs-blue.svg)](http://www.rubydoc.info/github/rails-api/active_model_serializers/0-9-stable)
-- [0.8 (0-8-stable) Documentation](https://github.com/rails-api/active_model_serializers/tree/0-8-stable)
-  - [![API Docs](http://img.shields.io/badge/yard-docs-blue.svg)](http://www.rubydoc.info/github/rails-api/active_model_serializers/0-8-stable)
-
 ## About
 
 ActiveModelSerializers brings convention over configuration to your JSON generation.
@@ -50,33 +39,24 @@ resource serialization. The serialization has the `#as_json`, `#to_json` and `#s
 methods used by the Rails JSON Renderer. (SerializableResource actually delegates
 these methods to the adapter.)
 
-By default ActiveModelSerializers will use the **Attributes Adapter**.
+By default ActiveModelSerializers will use the **Attributes Adapter** (no JSON root).
 But we strongly advise you to use **JsonApi Adapter**, which
 follows 1.0 of the format specified in [jsonapi.org/format](http://jsonapi.org/format).
 Check how to change the adapter in the sections below.
 
-## RELEASE CANDIDATE, PLEASE READ
-
-This is the **master** branch of ActiveModelSerializers.
-
-It will become the `0.10.0` release when it's ready. Currently this is a release candidate.
-
 `0.10.x` is **not** backward compatible with `0.9.x` nor `0.8.x`.
 
-`0.10.x` will be based on the `0.8.0` code, but with a more flexible
+`0.10.x` is based on the `0.8.0` code, but with a more flexible
 architecture. We'd love your help. [Learn how you can help here.](CONTRIBUTING.md)
 
 It is generally safe and recommended to use the master branch.
-
-For more information, see the post '[The future of
-AMS](https://medium.com/@joaomdmoura/the-future-of-ams-e5f9047ca7e9)'.
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
 ```
-gem 'active_model_serializers'
+gem 'active_model_serializers', '~> 0.10.0'
 ```
 
 And then execute:
@@ -103,7 +83,24 @@ If you'd like to chat, we have a [community slack](http://amserializers.herokuap
 
 Thanks!
 
+## Documentation
+
+- [0.10 (master) Documentation](https://github.com/rails-api/active_model_serializers/tree/master)
+  - [![API Docs](http://img.shields.io/badge/yard-docs-blue.svg)](http://www.rubydoc.info/github/rails-api/active_model_serializers/v0.10.0)
+  - [Guides](docs)
+- [0.9 (0-9-stable) Documentation](https://github.com/rails-api/active_model_serializers/tree/0-9-stable)
+  - [![API Docs](http://img.shields.io/badge/yard-docs-blue.svg)](http://www.rubydoc.info/github/rails-api/active_model_serializers/0-9-stable)
+- [0.8 (0-8-stable) Documentation](https://github.com/rails-api/active_model_serializers/tree/0-8-stable)
+  - [![API Docs](http://img.shields.io/badge/yard-docs-blue.svg)](http://www.rubydoc.info/github/rails-api/active_model_serializers/0-8-stable)
+
+
 ## High-level behavior
+
+Choose an adapter from [adapters](lib/active_model_serializers/adapter):
+
+``` ruby
+ActiveModelSerializers.config.adapter = :json_api # Default: `:attributes`
+```
 
 Given a [serializable model](lib/active_model/serializer/lint.rb):
 
@@ -137,7 +134,7 @@ The model can be serialized as:
 
 ```ruby
 options = {}
-serialization = SerializableResource.new(resource, options)
+serialization = ActiveModelSerializers::SerializableResource.new(resource, options)
 serialization.to_json
 serialization.as_json
 ```
@@ -146,7 +143,7 @@ SerializableResource delegates to the adapter, which it builds as:
 
 ```ruby
 adapter_options = {}
-adapter = Adapter.create(serializer, adapter_options)
+adapter = ActiveModelSerializers::Adapter.create(serializer, adapter_options)
 adapter.to_json
 adapter.as_json
 adapter.serializable_hash
@@ -162,6 +159,6 @@ serializer.associations
 ```
 See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for more information.
 
-# Contributing
+## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md)

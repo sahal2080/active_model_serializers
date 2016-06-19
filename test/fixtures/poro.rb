@@ -1,6 +1,8 @@
 verbose = $VERBOSE
 $VERBOSE = nil
 class Model < ActiveModelSerializers::Model
+  FILE_DIGEST = Digest::MD5.hexdigest(File.open(__FILE__).read)
+
   ### Helper methods, not required to be serializable
 
   # Convenience when not adding @attributes readers and writers
@@ -52,13 +54,7 @@ Post     = Class.new(Model)
 Like     = Class.new(Model)
 Author   = Class.new(Model)
 Bio      = Class.new(Model)
-Blog     = Class.new(Model) do
-  FILE_DIGEST = Digest::MD5.hexdigest(File.open(__FILE__).read)
-
-  def cache_key_with_digest
-    "#{cache_key}/#{FILE_DIGEST}"
-  end
-end
+Blog     = Class.new(Model)
 Role     = Class.new(Model)
 User     = Class.new(Model)
 Location = Class.new(Model)
@@ -74,10 +70,21 @@ end
 
 class Employee < ActiveRecord::Base
   has_many :pictures, as: :imageable
+  has_many :object_tags, as: :taggable
+end
+
+class ObjectTag < ActiveRecord::Base
+  belongs_to :poly_tag
+  belongs_to :taggable, polymorphic: true
 end
 
 class Picture < ActiveRecord::Base
   belongs_to :imageable, polymorphic: true
+  has_many :object_tags, as: :taggable
+end
+
+class PolyTag < ActiveRecord::Base
+  has_many :object_tags
 end
 
 module Spam; end
@@ -129,10 +136,11 @@ AuthorSerializer = Class.new(ActiveModel::Serializer) do
 end
 
 RoleSerializer = Class.new(ActiveModel::Serializer) do
-  cache only: [:name], skip_digest: true
-  attributes :id, :name, :description, :slug
+  cache only: [:name, :slug], skip_digest: true
+  attributes :id, :name, :description
+  attribute :friendly_id, key: :slug
 
-  def slug
+  def friendly_id
     "#{object.name}-#{object.id}"
   end
 
@@ -146,10 +154,10 @@ LikeSerializer = Class.new(ActiveModel::Serializer) do
 end
 
 LocationSerializer = Class.new(ActiveModel::Serializer) do
-  cache only: [:place], skip_digest: true
+  cache only: [:address], skip_digest: true
   attributes :id, :lat, :lng
 
-  belongs_to :place
+  belongs_to :place, key: :address
 
   def place
     'Nowhere'
@@ -231,8 +239,9 @@ end
 VirtualValueSerializer = Class.new(ActiveModel::Serializer) do
   attributes :id
 
-  has_many :reviews, virtual_value: [{ id: 1 }, { id: 2 }]
-  has_one :maker, virtual_value: { id: 1 }
+  has_many :reviews, virtual_value: [{ type: 'reviews', id: '1' },
+                                     { type: 'reviews', id: '2' }]
+  has_one :maker, virtual_value: { type: 'makers', id: '1' }
 
   def reviews
   end
@@ -248,7 +257,23 @@ end
 PolymorphicBelongsToSerializer = Class.new(ActiveModel::Serializer) do
   attributes :id, :title
 
-  has_one :imageable, serializer: PolymorphicHasManySerializer
+  has_one :imageable, serializer: PolymorphicHasManySerializer, polymorphic: true
+end
+
+PolymorphicSimpleSerializer = Class.new(ActiveModel::Serializer) do
+  attributes :id
+end
+
+PolymorphicObjectTagSerializer = Class.new(ActiveModel::Serializer) do
+  attributes :id
+
+  has_many :taggable, serializer: PolymorphicSimpleSerializer, polymorphic: true
+end
+
+PolymorphicTagSerializer = Class.new(ActiveModel::Serializer) do
+  attributes :id, :phrase
+
+  has_many :object_tags, serializer: PolymorphicObjectTagSerializer
 end
 
 Spam::UnrelatedLinkSerializer = Class.new(ActiveModel::Serializer) do

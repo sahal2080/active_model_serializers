@@ -28,15 +28,17 @@ module ActiveModelSerializers
       ActiveModelSerializers.config.perform_caching = Rails.configuration.action_controller.perform_caching
       # We want this hook to run after the config has been set, even if ActionController has already loaded.
       ActiveSupport.on_load(:action_controller) do
-        ActiveModelSerializers.config.cache_store = cache_store
+        ActiveModelSerializers.config.cache_store = ActionController::Base.cache_store
       end
     end
 
+    # :nocov:
     generators do |app|
       Rails::Generators.configure!(app.config.generators)
       Rails::Generators.hidden_namespaces.uniq!
       require 'generators/rails/resource_override'
     end
+    # :nocov:
 
     if Rails.env.test?
       ActionController::TestCase.send(:include, ActiveModelSerializers::Test::Schema)

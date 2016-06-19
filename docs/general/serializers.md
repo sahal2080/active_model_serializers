@@ -31,12 +31,44 @@ Serialization of the resource `title`
 |---------------------------- |-------------|
 | `attribute :title`          | `{ title: 'Some Title' } `
 | `attribute :title, key: :name` | `{ name: 'Some Title' } `
-| `attribute :title { 'A Different Title'}` | `{ title: 'A Different Title' } `
+| `attribute(:title) { 'A Different Title'}` | `{ title: 'A Different Title' } `
 | `attribute :title`<br>`def title 'A Different Title' end` | `{ title: 'A Different Title' }`
 
-[PR please for conditional attributes:)](https://github.com/rails-api/active_model_serializers/pull/1403)
+An `if` or `unless` option can make an attribute conditional. It takes a symbol of a method name on the serializer, or a lambda literal.
+
+e.g.
+
+```ruby
+attribute :private_data, if: :is_current_user?
+attribute :another_private_data, if: -> { scope.admin? }
+
+def is_current_user?
+  object.id == current_user.id
+end
+```
 
 ### Associations
+
+The interface for associations is, generically:
+
+> `association_type(association_name, options, &block)`
+
+Where:
+
+- `association_type` may be `has_one`, `has_many`, `belongs_to`.
+- `association_name` is a method name the serializer calls.
+- optional: `options` may be:
+  - `key:` The name used for the serialized association.
+  - `serializer:`
+  - `if:`
+  - `unless:`
+  - `virtual_value:`
+  - `polymorphic:` defines if polymorphic relation type should be nested in serialized association.
+- optional: `&block` is a context that returns the association's attributes.
+  - prevents `association_name` method from being called.
+  - return value of block is used as the association value.
+  - yields the `serializer` to the block.
+  - `include_data false` prevents the `data` key from being rendered in the JSON API relationship.
 
 #### ::has_one
 
@@ -46,9 +78,7 @@ e.g.
 has_one :bio
 has_one :blog, key: :site
 has_one :maker, virtual_value: { id: 1 }
-```
 
-``ruby
 has_one :blog do |serializer|
   serializer.cached_blog
 end
@@ -57,6 +87,18 @@ def cached_blog
   cache_store.fetch("cached_blog:#{object.updated_at}") do
     Blog.find(object.blog_id)
   end
+end
+```
+
+```ruby
+has_one :blog, if: :show_blog?
+# you can also use a string or lambda
+# has_one :blog, if: 'scope.admin?'
+# has_one :blog, if: -> (serializer) { serializer.scope.admin? }
+# has_one :blog, if: -> { scope.admin? }
+
+def show_blog?
+  scope.admin?
 end
 ```
 
@@ -224,7 +266,7 @@ In the controller, the scope/scope_name options are equal to
 the [`serialization_scope`method](https://github.com/rails-api/active_model_serializers/blob/d02cd30fe55a3ea85e1d351b6e039620903c1871/lib/action_controller/serialization.rb#L13-L20),
 which is `:current_user`, by default.
 
-Specfically, the `scope_name` is defaulted to `:current_user`, and may be set as
+Specifically, the `scope_name` is defaulted to `:current_user`, and may be set as
 `serialization_scope :view_context`.  The `scope` is set to `send(scope_name)` when `scope_name` is
 present and the controller responds to `scope_name`.
 
@@ -337,5 +379,21 @@ class PostSerializer < ActiveModel::Serializer
   attribute :body do
     object.body.downcase
   end
+end
+```
+
+## Overriding association serializer lookup
+
+If you want to define a specific serializer lookup for your associations, you can override
+the `ActiveModel::Serializer.serializer_for` method to return a serializer class based on defined conditions.
+
+```ruby
+class MySerializer < ActiveModel::Serializer
+  def self.serializer_for(model, options)
+    return SparseAdminSerializer if model.class == 'Admin'
+    super
+  end
+
+  # the rest of the serializer
 end
 ```

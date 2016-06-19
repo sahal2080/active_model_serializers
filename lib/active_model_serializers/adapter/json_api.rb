@@ -31,26 +31,41 @@ module ActiveModelSerializers
       autoload :Error
       autoload :Deserialization
 
-      def initialize(serializer, options = {})
-        super
-        @include_tree = ActiveModel::Serializer::IncludeTree.from_include_args(options[:include])
-        @fieldset = options[:fieldset] || ActiveModel::Serializer::Fieldset.new(options.delete(:fields))
+      def self.default_key_transform
+        :dash
       end
 
-      def default_key_transform
-        :dashed
+      def self.fragment_cache(cached_hash, non_cached_hash, root = true)
+        core_cached       = cached_hash.first
+        core_non_cached   = non_cached_hash.first
+        no_root_cache     = cached_hash.delete_if { |key, _value| key == core_cached[0] }
+        no_root_non_cache = non_cached_hash.delete_if { |key, _value| key == core_non_cached[0] }
+        cached_resource   = (core_cached[1]) ? core_cached[1].deep_merge(core_non_cached[1]) : core_non_cached[1]
+        hash = root ? { root => cached_resource } : cached_resource
+
+        hash.deep_merge no_root_non_cache.deep_merge no_root_cache
+      end
+
+      def initialize(serializer, options = {})
+        super
+        @include_directive = JSONAPI::IncludeDirective.new(options[:include], allow_wildcard: true)
+        @fieldset = options[:fieldset] || ActiveModel::Serializer::Fieldset.new(options.delete(:fields))
       end
 
       # {http://jsonapi.org/format/#crud Requests are transactional, i.e. success or failure}
       # {http://jsonapi.org/format/#document-top-level data and errors MUST NOT coexist in the same document.}
-      def serializable_hash(options = nil)
-        options ||= {}
+      def serializable_hash(*)
         document = if serializer.success?
-                     success_document(options)
+                     success_document
                    else
                      failure_document
                    end
-        transform_key_casing!(document, options[:serialization_context])
+        self.class.transform_key_casing!(document, instance_options)
+      end
+
+      def fragment_cache(cached_hash, non_cached_hash)
+        root = !instance_options.include?(:include)
+        self.class.fragment_cache(cached_hash, non_cached_hash, root)
       end
 
       # {http://jsonapi.org/format/#document-top-level Primary data}
@@ -68,7 +83,8 @@ module ActiveModelSerializers
       #    links: toplevel_links,
       #    jsonapi: toplevel_jsonapi
       #  }.reject! {|_,v| v.nil? }
-      def success_document(options)
+      # rubocop:disable Metrics/CyclomaticComplexity
+      def success_document
         is_collection = serializer.respond_to?(:each)
         serializers = is_collection ? serializer : [serializer]
         primary_data, included = resource_objects_for(serializers)
@@ -128,11 +144,14 @@ module ActiveModelSerializers
 
         if is_collection && serializer.paginated?
           hash[:links] ||= {}
-          hash[:links].update(pagination_links_for(serializer, options))
+          hash[:links].update(pagination_links_for(serializer))
         end
+
+        hash[:meta] = instance_options[:meta] unless instance_options[:meta].blank?
 
         hash
       end
+      # rubocop:enable Metrics/CyclomaticComplexity
 
       # {http://jsonapi.org/format/#errors JSON API Errors}
       # TODO: look into caching
@@ -163,24 +182,12 @@ module ActiveModelSerializers
         #   ]
         if serializer.respond_to?(:each)
           hash[:errors] = serializer.flat_map do |error_serializer|
-            Error.resource_errors(error_serializer)
+            Error.resource_errors(error_serializer, instance_options)
           end
         else
-          hash[:errors] = Error.resource_errors(serializer)
+          hash[:errors] = Error.resource_errors(serializer, instance_options)
         end
         hash
-      end
-
-      def fragment_cache(cached_hash, non_cached_hash)
-        root = false if instance_options.include?(:include)
-        core_cached       = cached_hash.first
-        core_non_cached   = non_cached_hash.first
-        no_root_cache     = cached_hash.delete_if { |key, _value| key == core_cached[0] }
-        no_root_non_cache = non_cached_hash.delete_if { |key, _value| key == core_non_cached[0] }
-        cached_resource   = (core_cached[1]) ? core_cached[1].deep_merge(core_non_cached[1]) : core_non_cached[1]
-        hash = root ? { root => cached_resource } : cached_resource
-
-        hash.deep_merge no_root_non_cache.deep_merge no_root_cache
       end
 
       protected
@@ -229,13 +236,13 @@ module ActiveModelSerializers
         @included = []
         @resource_identifiers = Set.new
         serializers.each { |serializer| process_resource(serializer, true) }
-        serializers.each { |serializer| process_relationships(serializer, @include_tree) }
+        serializers.each { |serializer| process_relationships(serializer, @include_directive) }
 
         [@primary, @included]
       end
 
       def process_resource(serializer, primary)
-        resource_identifier = ResourceIdentifier.new(serializer).as_json
+        resource_identifier = ResourceIdentifier.new(serializer, instance_options).as_json
         return false unless @resource_identifiers.add?(resource_identifier)
 
         resource_object = resource_object_for(serializer)
@@ -248,21 +255,21 @@ module ActiveModelSerializers
         true
       end
 
-      def process_relationships(serializer, include_tree)
-        serializer.associations(include_tree).each do |association|
-          process_relationship(association.serializer, include_tree[association.key])
+      def process_relationships(serializer, include_directive)
+        serializer.associations(include_directive).each do |association|
+          process_relationship(association.serializer, include_directive[association.key])
         end
       end
 
-      def process_relationship(serializer, include_tree)
+      def process_relationship(serializer, include_directive)
         if serializer.respond_to?(:each)
-          serializer.each { |s| process_relationship(s, include_tree) }
+          serializer.each { |s| process_relationship(s, include_directive) }
           return
         end
         return unless serializer && serializer.object
         return unless process_resource(serializer, false)
 
-        process_relationships(serializer, include_tree)
+        process_relationships(serializer, include_directive)
       end
 
       # {http://jsonapi.org/format/#document-resource-object-attributes Document Resource Object Attributes}
@@ -287,8 +294,8 @@ module ActiveModelSerializers
 
       # {http://jsonapi.org/format/#document-resource-objects Document Resource Objects}
       def resource_object_for(serializer)
-        resource_object = cache_check(serializer) do
-          resource_object = ResourceIdentifier.new(serializer).as_json
+        resource_object = serializer.fetch(self) do
+          resource_object = ResourceIdentifier.new(serializer, instance_options).as_json
 
           requested_fields = fieldset && fieldset.fields_for(resource_object[:type])
           attributes = attributes_for(serializer, requested_fields)
@@ -426,14 +433,18 @@ module ActiveModelSerializers
       #     meta: meta
       #   }.reject! {|_,v| v.nil? }
       def relationships_for(serializer, requested_associations)
-        include_tree = ActiveModel::Serializer::IncludeTree.from_include_args(requested_associations)
-        serializer.associations(include_tree).each_with_object({}) do |association, hash|
+        include_directive = JSONAPI::IncludeDirective.new(
+          requested_associations,
+          allow_wildcard: true
+        )
+        serializer.associations(include_directive).each_with_object({}) do |association, hash|
           hash[association.key] = Relationship.new(
             serializer,
             association.serializer,
-            association.options,
-            association.links,
-            association.meta
+            instance_options,
+            options: association.options,
+            links: association.links,
+            meta: association.meta
           ).as_json
         end
       end
@@ -463,7 +474,8 @@ module ActiveModelSerializers
       #   }.reject! {|_,v| v.nil? }
       def links_for(serializer)
         serializer._links.each_with_object({}) do |(name, value), hash|
-          hash[name] = Link.new(serializer, value).as_json
+          result = Link.new(serializer, value).as_json
+          hash[name] = result if result
         end
       end
 
@@ -498,8 +510,8 @@ module ActiveModelSerializers
       #   end
       # prs:
       #   https://github.com/rails-api/active_model_serializers/pull/1041
-      def pagination_links_for(serializer, options)
-        PaginationLinks.new(serializer.object, options[:serialization_context]).serializable_hash(options)
+      def pagination_links_for(serializer)
+        PaginationLinks.new(serializer.object, instance_options).as_json
       end
 
       # {http://jsonapi.org/format/#document-meta Docment Meta}

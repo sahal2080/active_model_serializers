@@ -10,8 +10,6 @@ module ActiveModel
     module Associations
       extend ActiveSupport::Concern
 
-      DEFAULT_INCLUDE_TREE = ActiveModel::Serializer::IncludeTree.from_string('*')
-
       included do
         with_options instance_writer: false, instance_reader: true do |serializer|
           serializer.class_attribute :_reflections
@@ -80,17 +78,18 @@ module ActiveModel
         end
       end
 
-      # @param [IncludeTree] include_tree (defaults to all associations when not provided)
+      # @param [JSONAPI::IncludeDirective] include_directive (defaults to the
+      #   +default_include_directive+ config value when not provided)
       # @return [Enumerator<Association>]
       #
-      def associations(include_tree = DEFAULT_INCLUDE_TREE)
+      def associations(include_directive = ActiveModelSerializers.default_include_directive)
         return unless object
 
         Enumerator.new do |y|
           self.class._reflections.each do |reflection|
             next if reflection.excluded?(self)
             key = reflection.options.fetch(:key, reflection.name)
-            next unless include_tree.key?(key)
+            next unless include_directive.key?(key)
             y.yield reflection.build_association(self, instance_options)
           end
         end

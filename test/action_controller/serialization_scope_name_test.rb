@@ -158,8 +158,6 @@ module SerializationScopeTesting
       assert_equal expected_json, @response.body
     end
   end
-  # FIXME: Has bugs. See comments below and
-  #   https://github.com/rails-api/active_model_serializers/issues/1509
   class NilSerializationScopeTest < ActionController::TestCase
     class PostViewContextTestController < ActionController::Base
       serialization_scope nil
@@ -171,12 +169,15 @@ module SerializationScopeTesting
         render json: new_post, serializer: PostSerializer, adapter: :json
       end
 
-      # TODO: run test when
-      # global state in Serializer._serializer_instance_methods is fixed
-      # def render_post_with_passed_in_scope
-      #   self.current_user = User.new(id: 3, name: 'Pete', admin: false)
-      #   render json: new_post, serializer: PostSerializer, adapter: :json, scope: current_user, scope_name: :current_user
-      # end
+      def render_post_with_passed_in_scope
+        self.current_user = User.new(id: 3, name: 'Pete', admin: false)
+        render json: new_post, serializer: PostSerializer, adapter: :json, scope: current_user, scope_name: :current_user
+      end
+
+      def render_post_with_passed_in_scope_without_scope_name
+        self.current_user = User.new(id: 3, name: 'Pete', admin: false)
+        render json: new_post, serializer: PostSerializer, adapter: :json, scope: current_user
+      end
 
       private
 
@@ -194,37 +195,35 @@ module SerializationScopeTesting
       assert_nil @controller.serialization_scope
     end
 
-    # TODO: change to NoMethodError and match 'admin?' when the
-    # global state in Serializer._serializer_instance_methods is fixed
     def test_nil_scope
-      if Rails.version.start_with?('4.0')
-        exception_class = NoMethodError
-        exception_matcher = 'admin?'
-      else
-        exception_class = NameError
-        exception_matcher = /admin|current_user/
-      end
-      exception = assert_raises(exception_class) do
+      exception_matcher = /current_user/
+      exception = assert_raises(NameError) do
         get :render_post_with_no_scope
       end
       assert_match exception_matcher, exception.message
     end
 
-    # TODO: run test when
-    # global state in Serializer._serializer_instance_methods is fixed
-    # def test_nil_scope_passed_in_current_user
-    #   get :render_post_with_passed_in_scope
-    #   expected_json = {
-    #     post: {
-    #       id: 4,
-    #       title: 'Title',
-    #       body: "The 'scope' is the 'current_user': true",
-    #       comments: [
-    #         { id: 2, body: 'Scoped' }
-    #       ]
-    #     }
-    #   }.to_json
-    #   assert_equal expected_json, @response.body
-    # end
+    def test_serialization_scope_is_and_nil_scope_passed_in_current_user
+      get :render_post_with_passed_in_scope
+      expected_json = {
+        post: {
+          id: 4,
+          title: 'Title',
+          body: "The 'scope' is the 'current_user': true",
+          comments: [
+            { id: 2, body: 'Scoped' }
+          ]
+        }
+      }.to_json
+      assert_equal expected_json, @response.body
+    end
+
+    def test_serialization_scope_is_nil_and_scope_passed_in_current_user_without_scope_name
+      exception_matcher = /current_user/
+      exception = assert_raises(NameError) do
+        get :render_post_with_passed_in_scope_without_scope_name
+      end
+      assert_match exception_matcher, exception.message
+    end
   end
 end

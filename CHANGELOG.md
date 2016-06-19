@@ -1,8 +1,75 @@
 ## 0.10.x
 
+### [master (unreleased)](https://github.com/rails-api/active_model_serializers/compare/v0.10.1...master)
+
 Breaking changes:
 
 Features:
+
+Fixes:
+
+Misc:
+
+### [v0.10.1 (2016-06-16)](https://github.com/rails-api/active_model_serializers/compare/v0.10.0...v0.10.1)
+
+Features:
+- [#1668](https://github.com/rails-api/active_model_serializers/pull/1668) Exclude nil and empty links. (@sigmike)
+- [#1426](https://github.com/rails-api/active_model_serializers/pull/1426) Add ActiveModelSerializers.config.default_includes (@empact)
+
+Fixes:
+- [#1754](https://github.com/rails-api/active_model_serializers/pull/1754) Fixes #1759, Grape integration, improves serialization_context
+  missing error message on pagination. Document overriding CollectionSerializer#paginated?. (@bf4)
+  Moved serialization_context creation to Grape formatter, so resource serialization works without explicit calls to the `render` helper method.
+  Added Grape collection tests. (@onomated)
+- [#1287](https://github.com/rails-api/active_model_serializers/pull/1287) Pass `fields` options from adapter to serializer. (@vasilakisfil)
+- [#1710](https://github.com/rails-api/active_model_serializers/pull/1710) Prevent association loading when `include_data` option
+  is set to `false`. (@groyoh)
+- [#1747](https://github.com/rails-api/active_model_serializers/pull/1747) Improve jsonapi mime type registration for Rails 5 (@remear)
+
+Misc:
+- [#1734](https://github.com/rails-api/active_model_serializers/pull/1734) Adds documentation for conditional attribute (@lambda2)
+- [#1685](https://github.com/rails-api/active_model_serializers/pull/1685) Replace `IncludeTree` with `IncludeDirective` from the jsonapi gem.
+
+### [v0.10.0 (2016-05-17)](https://github.com/rails-api/active_model_serializers/compare/4a2d9853ba7...v0.10.0)
+
+Breaking changes:
+- [#1662](https://github.com/rails-api/active_model_serializers/pull/1662) Drop support for Rails 4.0 and Ruby 2.0.0. (@remear)
+
+Features:
+- [#1677](https://github.com/rails-api/active_model_serializers/pull/1677) Add `assert_schema`, `assert_request_schema`, `assert_request_response_schema`. (@bf4)
+- [#1697](https://github.com/rails-api/active_model_serializers/pull/1697) Include actual exception message with custom exceptions;
+  `Test::Schema` exceptions are now `Minitest::Assertion`s. (@bf4)
+- [#1699](https://github.com/rails-api/active_model_serializers/pull/1699) String/Lambda support for conditional attributes/associations (@mtsmfm)
+- [#1687](https://github.com/rails-api/active_model_serializers/pull/1687) Only calculate `_cache_digest` (in `cache_key`) when `skip_digest` is false. (@bf4)
+- [#1647](https://github.com/rails-api/active_model_serializers/pull/1647) Restrict usage of `serializable_hash` options
+  to the ActiveModel::Serialization and ActiveModel::Serializers::JSON interface. (@bf4)
+
+Fixes:
+- [#1700](https://github.com/rails-api/active_model_serializers/pull/1700) Support pagination link for Kaminari when no data is returned. (@iamnader)
+- [#1726](https://github.com/rails-api/active_model_serializers/pull/1726) Adds polymorphic option to association definition which includes association type/nesting in serializer (@cgmckeever)
+
+Misc:
+- [#1673](https://github.com/rails-api/active_model_serializers/pull/1673) Adds "How to" guide on using AMS with POROs (@DrSayre)
+- [#1730](https://github.com/rails-api/active_model_serializers/pull/1730) Adds documentation for overriding default serializer based on conditions (@groyoh/@cgmckeever)
+
+### [v0.10.0.rc5 (2016-04-04)](https://github.com/rails-api/active_model_serializers/compare/v0.10.0.rc4...v0.10.0.rc5)
+
+Breaking changes:
+
+- [#1645](https://github.com/rails-api/active_model_serializers/pull/1645) Changed :dashed key transform to :dash. (@remear)
+- [#1574](https://github.com/rails-api/active_model_serializers/pull/1574) Default key case for the JsonApi adapter changed to dashed. (@remear)
+
+Features:
+- [#1645](https://github.com/rails-api/active_model_serializers/pull/1645) Transform keys referenced in values. (@remear)
+- [#1650](https://github.com/rails-api/active_model_serializers/pull/1650) Fix serialization scope options `scope`, `scope_name`
+  take precedence over `serialization_scope` in the controller.
+  Fix tests that required tearing down dynamic methods. (@bf4)
+- [#1644](https://github.com/rails-api/active_model_serializers/pull/1644) Include adapter name in cache key so
+  that the same serializer can be cached per adapter. (@bf4 via #1346 by @kevintyll)
+- [#1642](https://github.com/rails-api/active_model_serializers/pull/1642) Prefer object.cache_key over the generated
+  cache key. (@bf4 via #1346 by @kevintyll)
+- [#1637](https://github.com/rails-api/active_model_serializers/pull/1637) Make references to 'ActionController::Base.cache_store' explicit
+  in order to avoid issues when application controllers inherit from 'ActionController::API'. (@ncuesta)
 - [#1633](https://github.com/rails-api/active_model_serializers/pull/1633) Yield 'serializer' to serializer association blocks. (@bf4)
 - [#1616](https://github.com/rails-api/active_model_serializers/pull/1616) SerializableResource handles no serializer like controller. (@bf4)
 - [#1618](https://github.com/rails-api/active_model_serializers/issues/1618) Get collection root key for
@@ -28,8 +95,12 @@ Features:
 - [#1340](https://github.com/rails-api/active_model_serializers/pull/1340) Add support for resource-level meta. (@beauby)
 
 Fixes:
+- [#1657](https://github.com/rails-api/active_model_serializers/pull/1657) Add missing missing require "active_support/json". (@andreaseger)
+- [#1661](https://github.com/rails-api/active_model_serializers/pull/1661) Fixes `read_attribute_for_serialization` not
+  seeing methods defined in serialization superclass (#1653, #1658, #1660), introduced in #1650. (@bf4)
+- [#1651](https://github.com/rails-api/active_model_serializers/pull/1651) Fix deserialization of nil relationships. (@NullVoxPopuli)
 - [#1480](https://github.com/rails-api/active_model_serializers/pull/1480) Fix setting of cache_store from Rails configuration. (@bf4)
-  Fix uninentional mutating of value in memory cache store. (@groyoh)
+  Fix unintentional mutating of value in memory cache store. (@groyoh)
 - [#1622](https://github.com/rails-api/active_model_serializers/pull/1622) Fragment cache changed from per-record to per-serializer.
   Now, two serializers that use the same model may be separately cached. (@lserman)
 - [#1478](https://github.com/rails-api/active_model_serializers/pull/1478) Cache store will now be correctly set when serializers are
@@ -63,7 +134,8 @@ Misc:
 - [#1497](https://github.com/rails-api/active_model_serializers/pull/1497) Add JRuby-9000 to appveyor.yml(@corainchicago)
 - [#1420](https://github.com/rails-api/active_model_serializers/pull/1420) Adds tests and documentation for polymorphism(@marcgarreau)
 
-### v0.10.0.rc4 (2016/01/27 11:00 +00:00)
+
+### [v0.10.0.rc4 (2016-01-27)](https://github.com/rails-api/active_model_serializers/compare/v0.10.0.rc3...v0.10.0.rc4)
 Breaking changes:
 
 - [#1360](https://github.com/rails-api/active_model_serializers/pull/1360)
@@ -158,7 +230,7 @@ Misc:
 - [#1360](https://github.com/rails-api/active_model_serializers/pull/1360) Update CI to test 2.2.2 -> 2.2.3 (@karaAJC)
 - [#1371](https://github.com/rails-api/active_model_serializers/pull/1371) Refactor, update, create documentation (@bf4)
 
-### v0.10.0.rc3 (2015/09/16 15:19 +00:00)
+### [v0.10.0.rc3 (2015-09-16)](https://github.com/rails-api/active_model_serializers/compare/v0.10.0.rc2...v0.10.0.rc3)
 - [#1129](https://github.com/rails-api/active_model_serializers/pull/1129) Remove SerializableResource.serialize in favor of `.new` (@bf4)
 - [#1155](https://github.com/rails-api/active_model_serializers/pull/1155) Outside controller use tutorial (@CodedBeardedSignedTaylor)
 - [#1154](https://github.com/rails-api/active_model_serializers/pull/1154) Rubocop fixes for issues introduced by #1089 (@NullVoxPopuli)
@@ -233,7 +305,7 @@ Misc:
 - [#965](https://github.com/rails-api/active_model_serializers/pull/965) options fedault valueserializable_hash and as_json (@bf4)
 - [#959](https://github.com/rails-api/active_model_serializers/pull/959) TYPO on README.md (@kangkyu)
 
-### v0.10.0.rc2 (2015/06/16 21:30 +00:00)
+### [v0.10.0.rc2 (2015-06-16)](https://github.com/rails-api/active_model_serializers/compare/v0.10.0.rc1...v0.10.0.rc2)
 - [#958](https://github.com/rails-api/active_model_serializers/pull/958) Splitting json adapter into two (@joaomdmoura)
   * adds FlattenJSON as default adapter
 - [#953](https://github.com/rails-api/active_model_serializers/pull/953) use model name to determine the type (@lsylvester)
@@ -262,7 +334,7 @@ Misc:
 - [#887](https://github.com/rails-api/active_model_serializers/pull/887) Fixing tests on JRuby (@joaomdmoura)
 - [#885](https://github.com/rails-api/active_model_serializers/pull/885) Updates rails versions for test and dev (@tonyta)
 
-### v0.10.0.rc1 (2015/04/22 06:06 +00:00)
+### [v0.10.0.rc1 (2015-04-22)](https://github.com/rails-api/active_model_serializers/compare/86fc7d7227f3ce538fcb28c1e8c7069ce311f0e1...v0.10.0.rc1)
 - [#810](https://github.com/rails-api/active_model_serializers/pull/810) Adding Fragment Cache to AMS (@joaomdmoura)
   * adds fragment cache support
 - [#868](https://github.com/rails-api/active_model_serializers/pull/868) Fixed a bug that appears when a nil association is included (@groyoh)

@@ -163,7 +163,7 @@ module ActionController
         end
         expected = {
           data: {
-            id: assigns(:profile).id.to_s,
+            id: @controller.instance_variable_get(:@profile).id.to_s,
             type: 'profiles',
             attributes: {
               name: 'Name 1',
@@ -246,7 +246,7 @@ module ActionController
         expected = {
           data: [
             {
-              id: assigns(:profiles).first.id.to_s,
+              id: @controller.instance_variable_get(:@profiles).first.id.to_s,
               type: 'profiles',
               attributes: {
                 name: 'Name 1',
@@ -269,7 +269,7 @@ module ActionController
         expected = {
           data: [
             {
-              id: assigns(:profiles).first.id.to_s,
+              id: @controller.instance_variable_get(:@profiles).first.id.to_s,
               type: 'profiles',
               attributes: {
                 name: 'Name 1',
@@ -294,7 +294,8 @@ module ActionController
           comments: [
             {
               id: 1,
-              body: 'ZOMG A COMMENT' }
+              body: 'ZOMG A COMMENT'
+            }
           ],
           blog: {
             id: 999,
@@ -333,7 +334,8 @@ module ActionController
           comments: [
             {
               id: 1,
-              body: 'ZOMG A COMMENT' }
+              body: 'ZOMG A COMMENT'
+            }
           ],
           blog: {
             id: 999,
@@ -407,7 +409,8 @@ module ActionController
           comments: [
             {
               id: 1,
-              body: 'ZOMG A COMMENT' }
+              body: 'ZOMG A COMMENT'
+            }
           ],
           blog: {
             id: 999,
@@ -454,13 +457,15 @@ module ActionController
       end
 
       def test_render_event_is_emmited
-        ::ActiveSupport::Notifications.subscribe('render.active_model_serializers') do |name|
+        subscriber = ::ActiveSupport::Notifications.subscribe('render.active_model_serializers') do |name|
           @name = name
         end
 
         get :render_using_implicit_serializer
 
         assert_equal 'render.active_model_serializers', @name
+      ensure
+        ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
       end
     end
   end

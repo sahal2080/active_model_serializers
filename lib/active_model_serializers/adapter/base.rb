@@ -8,6 +8,40 @@ module ActiveModelSerializers
         ActiveModelSerializers::Adapter.register(subclass)
       end
 
+      # Sets the default transform for the adapter.
+      #
+      # @return [Symbol] the default transform for the adapter
+      def self.default_key_transform
+        :unaltered
+      end
+
+      # Determines the transform to use in order of precedence:
+      #   adapter option, global config, adapter default.
+      #
+      # @param options [Object]
+      # @return [Symbol] the transform to use
+      def self.transform(options)
+        return options[:key_transform] if options && options[:key_transform]
+        ActiveModelSerializers.config.key_transform || default_key_transform
+      end
+
+      # Transforms the casing of the supplied value.
+      #
+      # @param value [Object] the value to be transformed
+      # @param options [Object] serializable resource options
+      # @return [Symbol] the default transform for the adapter
+      def self.transform_key_casing!(value, options)
+        KeyTransform.send(transform(options), value)
+      end
+
+      def self.cache_key
+        @cache_key ||= ActiveModelSerializers::Adapter.registered_name(self)
+      end
+
+      def self.fragment_cache(cached_hash, non_cached_hash)
+        non_cached_hash.merge cached_hash
+      end
+
       attr_reader :serializer, :instance_options
 
       def initialize(serializer, options = {})
@@ -15,64 +49,34 @@ module ActiveModelSerializers
         @instance_options = options
       end
 
+      # Subclasses that implement this method must first call
+      #   options = serialization_options(options)
       def serializable_hash(_options = nil)
         fail NotImplementedError, 'This is an abstract method. Should be implemented at the concrete adapter.'
       end
 
       def as_json(options = nil)
-        hash = serializable_hash(options)
-        include_meta(hash)
-        hash
+        serializable_hash(options)
+      end
+
+      def cache_key
+        self.class.cache_key
       end
 
       def fragment_cache(cached_hash, non_cached_hash)
-        non_cached_hash.merge cached_hash
-      end
-
-      def cache_check(serializer)
-        CachedSerializer.new(serializer).cache_check(self) do
-          yield
-        end
+        self.class.fragment_cache(cached_hash, non_cached_hash)
       end
 
       private
 
-      def meta
-        instance_options.fetch(:meta, nil)
-      end
-
-      def meta_key
-        instance_options.fetch(:meta_key, 'meta'.freeze)
+      # see https://github.com/rails-api/active_model_serializers/pull/965
+      # When <tt>options</tt> is +nil+, sets it to +{}+
+      def serialization_options(options)
+        options ||= {} # rubocop:disable Lint/UselessAssignment
       end
 
       def root
         serializer.json_key.to_sym if serializer.json_key
-      end
-
-      def include_meta(json)
-        json[meta_key] = meta unless meta.blank?
-        json
-      end
-
-      def default_key_transform
-        :unaltered
-      end
-
-      # Determines the transform to use in order of precedence:
-      #   serialization context, global config, adapter default.
-      #
-      # @param serialization_context [Object] the SerializationContext
-      # @return [Symbol] the transform to use
-      def key_transform(serialization_context)
-        serialization_context.key_transform ||
-        ActiveModelSerializers.config.key_transform ||
-        default_key_transform
-      end
-
-      def transform_key_casing!(value, serialization_context)
-        return value unless serialization_context
-        transform = key_transform(serialization_context)
-        KeyTransform.send(transform, value)
       end
     end
   end

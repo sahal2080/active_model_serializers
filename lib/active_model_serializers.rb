@@ -2,11 +2,10 @@ require 'active_model'
 require 'active_support'
 require 'active_support/core_ext/object/with_options'
 require 'active_support/core_ext/string/inflections'
+require 'active_support/json'
 module ActiveModelSerializers
   extend ActiveSupport::Autoload
   autoload :Model
-  autoload :CachedSerializer
-  autoload :FragmentCache
   autoload :Callbacks
   autoload :Deserialization
   autoload :SerializableResource
@@ -30,6 +29,12 @@ module ActiveModelSerializers
     lineno = Regexp.last_match(2).to_i
 
     [file, lineno]
+  end
+
+  # Memoized default include directive
+  # @return [JSONAPI::IncludeDirective]
+  def self.default_include_directive
+    @default_include_directive ||= JSONAPI::IncludeDirective.new(config.default_includes, allow_wildcard: true)
   end
 
   require 'active_model/serializer/version'

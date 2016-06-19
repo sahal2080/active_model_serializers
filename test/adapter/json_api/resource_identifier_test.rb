@@ -14,7 +14,13 @@ module ActiveModelSerializers
           end
         end
 
-        class FragmentedSerializer < ActiveModel::Serializer; end
+        class FragmentedSerializer < ActiveModel::Serializer
+          cache only: :id
+
+          def id
+            'special_id'
+          end
+        end
 
         setup do
           @model = Author.new(id: 1, name: 'Steve K.')
@@ -22,7 +28,7 @@ module ActiveModelSerializers
         end
 
         def test_defined_type
-          test_type(WithDefinedTypeSerializer, 'with_defined_type')
+          test_type(WithDefinedTypeSerializer, 'with-defined-type')
         end
 
         def test_singular_type
@@ -42,7 +48,6 @@ module ActiveModelSerializers
         end
 
         def test_id_defined_on_fragmented
-          FragmentedSerializer.fragmented(WithDefinedIdSerializer.new(@model))
           test_id(FragmentedSerializer, 'special_id')
         end
 
@@ -58,7 +63,7 @@ module ActiveModelSerializers
 
         def test_type(serializer_class, expected_type)
           serializer = serializer_class.new(@model)
-          resource_identifier = ResourceIdentifier.new(serializer)
+          resource_identifier = ResourceIdentifier.new(serializer, nil)
           expected = {
             id: @model.id.to_s,
             type: expected_type
@@ -69,7 +74,7 @@ module ActiveModelSerializers
 
         def test_id(serializer_class, id)
           serializer = serializer_class.new(@model)
-          resource_identifier = ResourceIdentifier.new(serializer)
+          resource_identifier = ResourceIdentifier.new(serializer, nil)
           inflection = ActiveModelSerializers.config.jsonapi_resource_type
           type = @model.class.model_name.send(inflection)
           expected = {

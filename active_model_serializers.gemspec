@@ -19,9 +19,9 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
   spec.executables   = []
 
-  spec.required_ruby_version = '>= 2.0.0'
+  spec.required_ruby_version = '>= 2.1'
 
-  rails_versions = '>= 4.0'
+  rails_versions = ['>= 4.1', '< 6']
   spec.add_runtime_dependency 'activemodel', rails_versions
     # 'activesupport', rails_versions
     # 'builder'
@@ -41,6 +41,8 @@ Gem::Specification.new do |spec|
     # 'tzinfo'
     # 'minitest'
     # 'thread_safe'
+
+  spec.add_runtime_dependency 'jsonapi', '~> 0.1.1.beta2'
 
   spec.add_development_dependency 'activerecord', rails_versions
     # arel

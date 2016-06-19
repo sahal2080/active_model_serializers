@@ -129,10 +129,11 @@ module ActiveModelSerializers
           assert_equal({
             data: {
               id: '1',
-              type: 'virtual_values',
+              type: 'virtual-values',
               relationships: {
-                maker: { data: { id: 1 } },
-                reviews: { data: [{ id: 1 }, { id: 2 }] }
+                maker: { data: { type: 'makers', id: '1' } },
+                reviews: { data: [{ type: 'reviews', id: '1' },
+                                  { type: 'reviews', id: '2' }] }
               }
             }
           }, adapter.serializable_hash)

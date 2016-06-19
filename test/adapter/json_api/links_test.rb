@@ -17,6 +17,7 @@ module ActiveModelSerializers
           link :yet_another do
             "http://example.com/resource/#{object.id}"
           end
+          link(:nil) { nil }
         end
 
         def setup
@@ -40,7 +41,8 @@ module ActiveModelSerializers
                   stuff: 'value'
                 }
               }
-            }).serializable_hash
+            }
+          ).serializable_hash
           expected = {
             self: {
               href: 'http://example.com/posts',
@@ -80,10 +82,10 @@ module ActiveModelSerializers
               }
             },
             author: 'http://example.com/link_authors/1337',
-            link_authors: 'http://example.com/link_authors',
+            :"link-authors" => 'http://example.com/link_authors',
             resource: 'http://example.com/resource',
             posts: 'http://example.com/link_authors/1337/posts',
-            yet_another: 'http://example.com/resource/1337'
+            :"yet-another" => 'http://example.com/resource/1337'
           }
           assert_equal(expected, hash[:data][:links])
         end

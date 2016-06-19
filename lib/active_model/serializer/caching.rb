@@ -1,15 +1,15 @@
 module ActiveModel
   class Serializer
+    UndefinedCacheKey = Class.new(StandardError)
     module Caching
       extend ActiveSupport::Concern
 
       included do
         with_options instance_writer: false, instance_reader: false do |serializer|
           serializer.class_attribute :_cache         # @api private : the cache store
-          serializer.class_attribute :_fragmented    # @api private : @see ::fragmented
-          serializer.class_attribute :_cache_key     # @api private : when present, is first item in cache_key
-          serializer.class_attribute :_cache_only    # @api private : when fragment caching, whitelists cached_attributes. Cannot combine with except
-          serializer.class_attribute :_cache_except  # @api private : when fragment caching, blacklists cached_attributes. Cannot combine with only
+          serializer.class_attribute :_cache_key     # @api private : when present, is first item in cache_key.  Ignored if the serializable object defines #cache_key.
+          serializer.class_attribute :_cache_only    # @api private : when fragment caching, whitelists fetch_attributes. Cannot combine with except
+          serializer.class_attribute :_cache_except  # @api private : when fragment caching, blacklists fetch_attributes. Cannot combine with only
           serializer.class_attribute :_cache_options # @api private : used by CachedSerializer, passed to _cache.fetch
           #  _cache_options include:
           #    expires_in
@@ -17,8 +17,9 @@ module ActiveModel
           #    force
           #    race_condition_ttl
           #  Passed to ::_cache as
-          #    serializer._cache.fetch(cache_key, @klass._cache_options)
-          serializer.class_attribute :_cache_digest # @api private : Generated
+          #    serializer.cache_store.fetch(cache_key, @klass._cache_options)
+          #  Passed as second argument to serializer.cache_store.fetch(cache_key, serializer_class._cache_options)
+          serializer.class_attribute :_cache_digest_file_path # @api private : Derived at inheritance
         end
       end
 
@@ -41,7 +42,12 @@ module ActiveModel
         def inherited(base)
           super
           caller_line = caller[1]
-          base._cache_digest = digest_caller_file(caller_line)
+          base._cache_digest_file_path = caller_line
+        end
+
+        def _cache_digest
+          return @_cache_digest if defined?(@_cache_digest)
+          @_cache_digest = digest_caller_file(_cache_digest_file_path)
         end
 
         # Hashes contents of file for +_cache_digest+
@@ -58,11 +64,19 @@ module ActiveModel
           ''.freeze
         end
 
-        # @api private
-        # Used by FragmentCache on the CachedSerializer
-        #  to call attribute methods on the fragmented cached serializer.
-        def fragmented(serializer)
-          self._fragmented = serializer
+        def _skip_digest?
+          _cache_options && _cache_options[:skip_digest]
+        end
+
+        def fragmented_attributes
+          cached = _cache_only ? _cache_only : _attributes - _cache_except
+          cached = cached.map! { |field| _attributes_keys.fetch(field, field) }
+          non_cached = _attributes - cached
+          non_cached = non_cached.map! { |field| _attributes_keys.fetch(field, field) }
+          {
+            cached: cached,
+            non_cached: non_cached
+          }
         end
 
         # Enables a serializer to be automatically cached
@@ -70,7 +84,7 @@ module ActiveModel
         # Sets +::_cache+ object to <tt>ActionController::Base.cache_store</tt>
         #   when Rails.configuration.action_controller.perform_caching
         #
-        # @params options [Hash] with valid keys:
+        # @param options [Hash] with valid keys:
         #   cache_store    : @see ::_cache
         #   key            : @see ::_cache_key
         #   only           : @see ::_cache_only
@@ -141,6 +155,130 @@ module ActiveModel
           perform_caching? && cache_store &&
             (_cache_only && !_cache_except || !_cache_only && _cache_except)
         end
+
+        # Read cache from cache_store
+        # @return [Hash]
+        def cache_read_multi(collection_serializer, adapter_instance, include_directive)
+          return {} if ActiveModelSerializers.config.cache_store.blank?
+
+          keys = object_cache_keys(collection_serializer, adapter_instance, include_directive)
+
+          return {} if keys.blank?
+
+          ActiveModelSerializers.config.cache_store.read_multi(*keys)
+        end
+
+        # Find all cache_key for the collection_serializer
+        # @param serializers [ActiveModel::Serializer::CollectionSerializer]
+        # @param adapter_instance [ActiveModelSerializers::Adapter::Base]
+        # @param include_directive [JSONAPI::IncludeDirective]
+        # @return [Array] all cache_key of collection_serializer
+        def object_cache_keys(collection_serializer, adapter_instance, include_directive)
+          cache_keys = []
+
+          collection_serializer.each do |serializer|
+            cache_keys << object_cache_key(serializer, adapter_instance)
+
+            serializer.associations(include_directive).each do |association|
+              if association.serializer.respond_to?(:each)
+                association.serializer.each do |sub_serializer|
+                  cache_keys << object_cache_key(sub_serializer, adapter_instance)
+                end
+              else
+                cache_keys << object_cache_key(association.serializer, adapter_instance)
+              end
+            end
+          end
+
+          cache_keys.compact.uniq
+        end
+
+        # @return [String, nil] the cache_key of the serializer or nil
+        def object_cache_key(serializer, adapter_instance)
+          return unless serializer.present? && serializer.object.present?
+
+          serializer.class.cache_enabled? ? serializer.cache_key(adapter_instance) : nil
+        end
+      end
+
+      ### INSTANCE METHODS
+      def fetch_attributes(fields, cached_attributes, adapter_instance)
+        if serializer_class.cache_enabled?
+          key = cache_key(adapter_instance)
+          cached_attributes.fetch(key) do
+            serializer_class.cache_store.fetch(key, serializer_class._cache_options) do
+              attributes(fields, true)
+            end
+          end
+        elsif serializer_class.fragment_cache_enabled?
+          fetch_attributes_fragment(adapter_instance)
+        else
+          attributes(fields, true)
+        end
+      end
+
+      def fetch(adapter_instance, cache_options = serializer_class._cache_options)
+        if serializer_class.cache_store
+          serializer_class.cache_store.fetch(cache_key(adapter_instance), cache_options) do
+            yield
+          end
+        else
+          yield
+        end
+      end
+
+      # 1. Determine cached fields from serializer class options
+      # 2. Get non_cached_fields and fetch cache_fields
+      # 3. Merge the two hashes using adapter_instance#fragment_cache
+      def fetch_attributes_fragment(adapter_instance)
+        serializer_class._cache_options ||= {}
+        serializer_class._cache_options[:key] = serializer_class._cache_key if serializer_class._cache_key
+        fields = serializer_class.fragmented_attributes
+
+        non_cached_fields = fields[:non_cached].dup
+        non_cached_hash = attributes(non_cached_fields, true)
+        include_directive = JSONAPI::IncludeDirective.new(non_cached_fields - non_cached_hash.keys)
+        non_cached_hash.merge! resource_relationships({}, { include_directive: include_directive }, adapter_instance)
+
+        cached_fields = fields[:cached].dup
+        key = cache_key(adapter_instance)
+        cached_hash =
+          serializer_class.cache_store.fetch(key, serializer_class._cache_options) do
+            hash = attributes(cached_fields, true)
+            include_directive = JSONAPI::IncludeDirective.new(cached_fields - hash.keys)
+            hash.merge! resource_relationships({}, { include_directive: include_directive }, adapter_instance)
+          end
+
+        # Merge both results
+        adapter_instance.fragment_cache(cached_hash, non_cached_hash)
+      end
+
+      def cache_key(adapter_instance)
+        return @cache_key if defined?(@cache_key)
+
+        parts = []
+        parts << object_cache_key
+        parts << adapter_instance.cache_key
+        parts << serializer_class._cache_digest unless serializer_class._skip_digest?
+        @cache_key = parts.join('/')
+      end
+
+      # Use object's cache_key if available, else derive a key from the object
+      # Pass the `key` option to the `cache` declaration or override this method to customize the cache key
+      def object_cache_key
+        if object.respond_to?(:cache_key)
+          object.cache_key
+        elsif (serializer_cache_key = (serializer_class._cache_key || serializer_class._cache_options[:key]))
+          object_time_safe = object.updated_at
+          object_time_safe = object_time_safe.strftime('%Y%m%d%H%M%S%9N') if object_time_safe.respond_to?(:strftime)
+          "#{serializer_cache_key}/#{object.id}-#{object_time_safe}"
+        else
+          fail UndefinedCacheKey, "#{object.class} must define #cache_key, or the 'key:' option must be passed into '#{serializer_class}.cache'"
+        end
+      end
+
+      def serializer_class
+        @serializer_class ||= self.class
       end
     end
   end

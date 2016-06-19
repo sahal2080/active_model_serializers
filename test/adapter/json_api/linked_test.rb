@@ -216,7 +216,7 @@ module ActiveModelSerializers
           expected = {
             related: {
               data: [{
-                type: 'spam_unrelated_links',
+                type: 'spam-unrelated-links',
                 id: '456'
               }]
             }
@@ -341,9 +341,10 @@ module ActiveModelSerializers
 
         def test_no_duplicates_collection
           hash = ActiveModelSerializers::SerializableResource.new(
-            [@post1, @post2], adapter: :json_api,
-                              include: '*.*')
-                                                             .serializable_hash
+            [@post1, @post2],
+            adapter: :json_api,
+            include: '*.*'
+          ).serializable_hash
           expected = [
             {
               type: 'authors', id: '1',
@@ -364,14 +365,15 @@ module ActiveModelSerializers
           hash = ActiveModelSerializers::SerializableResource.new(
             @nestedpost1,
             adapter: :json_api,
-            include: '*').serializable_hash
+            include: '*'
+          ).serializable_hash
           expected = [
-            type: 'nested_posts', id: '2',
+            type: 'nested-posts', id: '2',
             relationships: {
-              nested_posts: {
+              :"nested-posts" => {
                 data: [
-                  { type: 'nested_posts', id: '1' },
-                  { type: 'nested_posts', id: '2' }
+                  { type: 'nested-posts', id: '1' },
+                  { type: 'nested-posts', id: '2' }
                 ]
               }
             }
@@ -383,7 +385,8 @@ module ActiveModelSerializers
           hash = ActiveModelSerializers::SerializableResource.new(
             [@nestedpost1, @nestedpost2],
             adapter: :json_api,
-            include: '*').serializable_hash
+            include: '*'
+          ).serializable_hash
           assert_nil(hash[:included])
         end
       end

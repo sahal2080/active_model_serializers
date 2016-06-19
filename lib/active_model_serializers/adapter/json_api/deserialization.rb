@@ -155,7 +155,7 @@ module ActiveModelSerializers
 
         # @api private
         def parse_attributes(attributes, options)
-          attributes
+          transform_keys(attributes, options)
             .map { |(k, v)| { field_key(k, options) => v } }
             .reduce({}, :merge)
         end
@@ -188,16 +188,24 @@ module ActiveModelSerializers
             end
 
           polymorphic = (options[:polymorphic] || []).include?(assoc_name.to_sym)
-          hash["#{prefix_key}_type".to_sym] = assoc_data['type'] if polymorphic
+          if polymorphic
+            hash["#{prefix_key}_type".to_sym] = assoc_data.present? ? assoc_data['type'] : nil
+          end
 
           hash
         end
 
         # @api private
         def parse_relationships(relationships, options)
-          relationships
+          transform_keys(relationships, options)
             .map { |(k, v)| parse_relationship(k, v['data'], options) }
             .reduce({}, :merge)
+        end
+
+        # @api private
+        def transform_keys(hash, options)
+          transform = options[:key_transform] || :underscore
+          KeyTransform.send(transform, hash)
         end
       end
     end

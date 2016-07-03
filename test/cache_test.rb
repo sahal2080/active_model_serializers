@@ -101,7 +101,7 @@ module ActiveModelSerializers
       uncached_author_serializer = AuthorSerializer.new(uncached_author)
 
       render_object_with_cache(uncached_author)
-      key = "#{uncached_author_serializer.class._cache_key}/#{uncached_author_serializer.object.id}-#{uncached_author_serializer.object.updated_at.strftime("%Y%m%d%H%M%S%9N")}"
+      key = "#{uncached_author_serializer.class._cache_key}/#{uncached_author_serializer.object.id}-#{uncached_author_serializer.object.updated_at.strftime('%Y%m%d%H%M%S%9N')}"
       key = "#{key}/#{adapter.cache_key}"
       assert_equal(uncached_author_serializer.attributes.to_json, cache_store.fetch(key).to_json)
     end
@@ -318,6 +318,34 @@ module ActiveModelSerializers
         writer = @comment.post.blog.writer
         writer_cache_key = writer.cache_key
         assert_equal cached_attributes["#{writer_cache_key}/#{adapter_instance.cache_key}"], Author.new(id: 'author', name: 'Joao M. D. Moura').attributes
+      end
+    end
+
+    def test_cache_read_multi_with_fragment_cache_enabled
+      post_serializer = Class.new(ActiveModel::Serializer) do
+        cache except: [:body]
+      end
+
+      serializers = ActiveModel::Serializer::CollectionSerializer.new([@post, @post], serializer: post_serializer)
+
+      Timecop.freeze(Time.current) do
+        # Warming up.
+        options = {}
+        adapter_options = {}
+        adapter_instance = ActiveModelSerializers::Adapter::Attributes.new(serializers, adapter_options)
+        serializers.serializable_hash(adapter_options, options, adapter_instance)
+
+        # Should find something with read_multi now
+        adapter_options = {}
+        serializers.serializable_hash(adapter_options, options, adapter_instance)
+        cached_attributes = adapter_options.fetch(:cached_attributes)
+
+        include_directive = ActiveModelSerializers.default_include_directive
+        manual_cached_attributes = ActiveModel::Serializer.cache_read_multi(serializers, adapter_instance, include_directive)
+
+        refute_equal 0, cached_attributes.size
+        refute_equal 0, manual_cached_attributes.size
+        assert_equal manual_cached_attributes, cached_attributes
       end
     end
 

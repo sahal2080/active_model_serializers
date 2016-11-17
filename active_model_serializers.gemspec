@@ -31,7 +31,7 @@ Gem::Specification.new do |spec|
   # 'rack'
   # 'rack-test', '~> 0.6.2'
 
-  spec.add_runtime_dependency 'railties', rails_versions
+  spec.add_development_dependency 'railties', rails_versions
   # 'activesupport', rails_versions
   # 'actionpack', rails_versions
   # 'rake', '>= 0.8.7'
@@ -42,7 +42,7 @@ Gem::Specification.new do |spec|
   # 'minitest'
   # 'thread_safe'
 
-  spec.add_runtime_dependency 'jsonapi', '~> 0.1.1.beta2'
+  spec.add_runtime_dependency 'jsonapi', '0.1.1.beta2'
 
   spec.add_development_dependency 'activerecord', rails_versions
   # arel

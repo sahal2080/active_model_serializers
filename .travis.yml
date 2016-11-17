@@ -20,13 +20,15 @@ cache:
 
 script:
   - bundle exec rake ci
-
+after_success:
+  - codeclimate-test-reporter
 env:
   global:
     - "JRUBY_OPTS='--dev -J-Xmx1024M --debug'"
   matrix:
     - "RAILS_VERSION=4.1"
     - "RAILS_VERSION=4.2"
+    - "RAILS_VERSION=5.0"
     - "RAILS_VERSION=master"
 
 matrix:
@@ -37,6 +39,12 @@ matrix:
     env: RAILS_VERSION=master
   - rvm: jruby-head
     env: RAILS_VERSION=master
+  - rvm: 2.1
+    env: RAILS_VERSION=5.0
+  - rvm: jruby-9.0.4.0
+    env: RAILS_VERSION=5.0
+  - rvm: jruby-head
+    env: RAILS_VERSION=5.0
   allow_failures:
     - rvm: ruby-head
     - rvm: jruby-head

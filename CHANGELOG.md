@@ -1,13 +1,53 @@
 ## 0.10.x
 
-### [master (unreleased)](https://github.com/rails-api/active_model_serializers/compare/v0.10.1...master)
+### [master (unreleased)](https://github.com/rails-api/active_model_serializers/compare/v0.10.2...master)
 
 Breaking changes:
 
+Fixes:
+
+- [#1973](https://github.com/rails-api/active_model_serializers/pull/1973) Fix namespace lookup for collections and has_many relationships (@groyoh)
+- [#1887](https://github.com/rails-api/active_model_serializers/pull/1887) Make the comment reflect what the function does (@johnnymo87)
+- [#1890](https://github.com/rails-api/active_model_serializers/issues/1890) Ensure generator inherits from ApplicationSerializer when available (@richmolj)
+- [#1922](https://github.com/rails-api/active_model_serializers/pull/1922) Make railtie an optional dependency in runtime (@ggpasqualino)
+- [#1930](https://github.com/rails-api/active_model_serializers/pull/1930) Ensure valid jsonapi when relationship has no links or data (@richmolj)
+
 Features:
 
+- [#1757](https://github.com/rails-api/active_model_serializers/pull/1757) Make serializer lookup chain configurable. (@NullVoxPopuli)
+- [#1968](https://github.com/rails-api/active_model_serializers/pull/1968) (@NullVoxPopuli)
+  - Add controller namespace to default controller lookup
+  - Provide a `namespace` render option
+  - document how set the namespace in the controller for implicit lookup.
+- [#1791](https://github.com/rails-api/active_model_serializers/pull/1791) (@bf4, @youroff, @NullVoxPopuli)
+  - Added `jsonapi_namespace_separator` config option.
+- [#1889](https://github.com/rails-api/active_model_serializers/pull/1889) Support key transformation for Attributes adapter (@iancanderson, @danbee)
+- [#1917](https://github.com/rails-api/active_model_serializers/pull/1917) Add `jsonapi_pagination_links_enabled` configuration option (@richmolj)
+- [#1797](https://github.com/rails-api/active_model_serializers/pull/1797) Only include 'relationships' when sideloading (@richmolj)
+
 Fixes:
-- [#1814] (https://github.com/rails-api/active_model_serializers/pull/1814) Ensuring read_multi works with fragment cache
+
+- [#1833](https://github.com/rails-api/active_model_serializers/pull/1833) Remove relationship links if they are null (@groyoh)
+- [#1881](https://github.com/rails-api/active_model_serializers/pull/1881) ActiveModelSerializers::Model correctly works with string keys (@yevhene)
+
+Misc:
+- [#1767](https://github.com/rails-api/active_model_serializers/pull/1767) Replace raising/rescuing `CollectionSerializer::NoSerializerError`,
+  throw/catch `:no_serializer`. (@bf4)
+- [#1839](https://github.com/rails-api/active_model_serializers/pull/1839) `fields` tests demonstrating usage for both attributes and relationships. (@NullVoxPopuli)
+- [#1812](https://github.com/rails-api/active_model_serializers/pull/1812) add a code of conduct (@corainchicago)
+
+- [#1878](https://github.com/rails-api/active_model_serializers/pull/1878) Cache key generation for serializers now uses `ActiveSupport::Cache.expand_cache_key` instead of `Array#join` by default and is also overridable. This change should be backward-compatible. (@markiz)
+
+- [#1799](https://github.com/rails-api/active_model_serializers/pull/1799) Add documentation for setting the adapter. (@ScottKbka)
+- [#1909](https://github.com/rails-api/active_model_serializers/pull/1909) Add documentation for relationship links. (@vasilakisfil, @NullVoxPopuli)
+- [#1959](https://github.com/rails-api/active_model_serializers/pull/1959) Add documentation for root. (@shunsuke227ono)
+- [#1967](https://github.com/rails-api/active_model_serializers/pull/1967) Improve type method documentation. (@yukideluxe)
+
+### [v0.10.2 (2016-07-05)](https://github.com/rails-api/active_model_serializers/compare/v0.10.1...v0.10.2)
+
+Fixes:
+- [#1814](https://github.com/rails-api/active_model_serializers/pull/1814) Ensuring read_multi works with fragment cache
+- [#1848](https://github.com/rails-api/active_model_serializers/pull/1848) Redefine associations on inherited serializers. (@EhsanYousefi)
 
 Misc:
 - [#1808](https://github.com/rails-api/active_model_serializers/pull/1808) Adds documentation for `fields` option. (@luizkowalski)

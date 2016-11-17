@@ -37,7 +37,7 @@ module ActiveModel
       def initialize(*)
         super
         @_links = {}
-        @_include_data = true
+        @_include_data = Serializer.config.include_data_default
         @_meta = nil
       end
 
@@ -69,17 +69,15 @@ module ActiveModel
       #       Blog.find(object.blog_id)
       #     end
       #   end
-      def value(serializer)
+      def value(serializer, include_slice)
         @object = serializer.object
         @scope = serializer.scope
 
-        if block
-          block_value = instance_exec(serializer, &block)
-          if block_value != :nil
-            block_value
-          elsif @_include_data
-            serializer.read_attribute_for_serialization(name)
-          end
+        block_value = instance_exec(serializer, &block) if block
+        return unless include_data?(include_slice)
+
+        if block && block_value != :nil
+          block_value
         else
           serializer.read_attribute_for_serialization(name)
         end
@@ -88,7 +86,7 @@ module ActiveModel
       # Build association. This method is used internally to
       # build serializer's association by its reflection.
       #
-      # @param [Serializer] subject is a parent serializer for given association
+      # @param [Serializer] parent_serializer for given association
       # @param [Hash{Symbol => Object}] parent_serializer_options
       #
       # @example
@@ -106,26 +104,36 @@ module ActiveModel
       #
       # @api private
       #
-      def build_association(subject, parent_serializer_options)
-        association_value = value(subject)
+      def build_association(parent_serializer, parent_serializer_options, include_slice = {})
         reflection_options = options.dup
-        serializer_class = subject.class.serializer_for(association_value, reflection_options)
-        reflection_options[:include_data] = @_include_data
+
+        # Pass the parent's namespace onto the child serializer
+        reflection_options[:namespace] ||= parent_serializer_options[:namespace]
+
+        association_value = value(parent_serializer, include_slice)
+        serializer_class = parent_serializer.class.serializer_for(association_value, reflection_options)
+        reflection_options[:include_data] = include_data?(include_slice)
+        reflection_options[:links] = @_links
+        reflection_options[:meta] = @_meta
 
         if serializer_class
-          begin
-            serializer = serializer_class.new(
+          serializer = catch(:no_serializer) do
+            serializer_class.new(
               association_value,
-              serializer_options(subject, parent_serializer_options, reflection_options)
+              serializer_options(parent_serializer, parent_serializer_options, reflection_options)
             )
-          rescue ActiveModel::Serializer::CollectionSerializer::NoSerializerError
+          end
+          if serializer.nil?
             reflection_options[:virtual_value] = association_value.try(:as_json) || association_value
+          else
+            reflection_options[:serializer] = serializer
           end
         elsif !association_value.nil? && !association_value.instance_of?(Object)
           reflection_options[:virtual_value] = association_value
         end
 
-        Association.new(name, serializer, reflection_options, @_links, @_meta)
+        block = nil
+        Association.new(name, reflection_options, block)
       end
 
       protected
@@ -134,12 +142,20 @@ module ActiveModel
 
       private
 
-      def serializer_options(subject, parent_serializer_options, reflection_options)
+      def include_data?(include_slice)
+        if @_include_data == :if_sideloaded
+          include_slice.key?(name)
+        else
+          @_include_data
+        end
+      end
+
+      def serializer_options(parent_serializer, parent_serializer_options, reflection_options)
         serializer = reflection_options.fetch(:serializer, nil)
 
         serializer_options = parent_serializer_options.except(:serializer)
         serializer_options[:serializer] = serializer if serializer
-        serializer_options[:serializer_context_class] = subject.class
+        serializer_options[:serializer_context_class] = parent_serializer.class
         serializer_options
       end
     end

@@ -13,7 +13,7 @@ module ActiveModel
       included do
         with_options instance_writer: false, instance_reader: true do |serializer|
           serializer.class_attribute :_reflections
-          self._reflections ||= []
+          self._reflections ||= {}
         end
 
         extend ActiveSupport::Autoload
@@ -74,7 +74,8 @@ module ActiveModel
         # @api private
         #
         def associate(reflection)
-          self._reflections << reflection
+          key = reflection.options[:key] || reflection.name
+          self._reflections[key] = reflection
         end
       end
 
@@ -82,15 +83,17 @@ module ActiveModel
       #   +default_include_directive+ config value when not provided)
       # @return [Enumerator<Association>]
       #
-      def associations(include_directive = ActiveModelSerializers.default_include_directive)
+      def associations(include_directive = ActiveModelSerializers.default_include_directive, include_slice = nil)
+        include_slice ||= include_directive
         return unless object
 
         Enumerator.new do |y|
-          self.class._reflections.each do |reflection|
+          self.class._reflections.values.each do |reflection|
             next if reflection.excluded?(self)
             key = reflection.options.fetch(:key, reflection.name)
             next unless include_directive.key?(key)
-            y.yield reflection.build_association(self, instance_options)
+
+            y.yield reflection.build_association(self, instance_options, include_slice)
           end
         end
       end

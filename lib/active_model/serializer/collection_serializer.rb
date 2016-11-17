@@ -1,7 +1,6 @@
 module ActiveModel
   class Serializer
     class CollectionSerializer
-      NoSerializerError = Class.new(StandardError)
       include Enumerable
       delegate :each, to: :@serializers
 
@@ -52,7 +51,8 @@ module ActiveModel
       # rubocop:enable Metrics/CyclomaticComplexity
 
       def paginated?
-        object.respond_to?(:current_page) &&
+        ActiveModelSerializers.config.jsonapi_pagination_links_enabled &&
+          object.respond_to?(:current_page) &&
           object.respond_to?(:total_pages) &&
           object.respond_to?(:size)
       end
@@ -71,10 +71,13 @@ module ActiveModel
       end
 
       def serializer_from_resource(resource, serializer_context_class, options)
-        serializer_class = options.fetch(:serializer) { serializer_context_class.serializer_for(resource) }
+        serializer_class = options.fetch(:serializer) do
+          serializer_context_class.serializer_for(resource, namespace: options[:namespace])
+        end
 
-        if serializer_class.nil? # rubocop:disable Style/GuardClause
-          fail NoSerializerError, "No serializer found for resource: #{resource.inspect}"
+        if serializer_class.nil?
+          ActiveModelSerializers.logger.debug "No serializer found for resource: #{resource.inspect}"
+          throw :no_serializer
         else
           serializer_class.new(resource, options.except(:serializer))
         end

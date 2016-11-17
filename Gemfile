@@ -38,13 +38,16 @@ gem 'tzinfo-data', platforms: (@windows_platforms + [:jruby])
 
 group :bench do
   # https://github.com/rails-api/active_model_serializers/commit/cb4459580a6f4f37f629bf3185a5224c8624ca76
-  gem 'benchmark-ips', require: false, group: :development
+  gem 'benchmark-ips', '>= 2.7.2', require: false, group: :development
 end
 
 group :test do
   gem 'sqlite3',                          platform: (@windows_platforms + [:ruby])
   gem 'activerecord-jdbcsqlite3-adapter', platform: :jruby
   gem 'codeclimate-test-reporter', require: false
+  gem 'm', '~> 1.5'
+  gem 'pry', '~> 0.10'
+  gem 'pry-byebug', '~> 3.4', platform: :ruby
 end
 
 group :development, :test do

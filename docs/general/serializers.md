@@ -140,7 +140,7 @@ class PictureSerializer < ActiveModel::Serializer
 end
 ```
 
-For more context, see the [tests](../../test/adapter/polymorphic_test.rb) for each adapter.
+You can specify the serializers by [overriding serializer_for](serializers.md#overriding-association-serializer-lookup). For more context about polymorphic relationships, see the [tests](../../test/adapter/polymorphic_test.rb) for each adapter.
 
 ### Caching
 
@@ -173,18 +173,25 @@ end
 
 #### ::type
 
-The `::type` method defines the JSONAPI [type](http://jsonapi.org/format/#document-resource-object-identification) that will be rendered for this serializer.
+When using the `:json_api` adapter, the `::type` method defines the JSONAPI [type](http://jsonapi.org/format/#document-resource-object-identification) that will be rendered for this serializer.
+
+When using the `:json` adapter, the `::type` method defines the name of the root element.
+
 It either takes a `String` or `Symbol` as parameter.
 
-Note: This method is useful only when using the `:json_api` adapter.
+Note: This method is useful only when using the `:json_api` or `:json` adapter.
 
 Examples:
 ```ruby
 class UserProfileSerializer < ActiveModel::Serializer
   type 'profile'
+
+  attribute :name
 end
 class AuthorProfileSerializer < ActiveModel::Serializer
   type :profile
+
+  attribute :name
 end
 ```
 
@@ -194,7 +201,20 @@ With the `:json_api` adapter, the previous serializers would be rendered as:
 {
   "data": {
     "id": "1",
-    "type": "profile"
+    "type": "profile",
+    "attributes": {
+      "name": "Julia"
+    }
+  }
+}
+```
+
+With the `:json` adapter, the previous serializer would be rendered as:
+
+``` json
+{
+  "profile": {
+    "name": "Julia"
   }
 }
 ```
@@ -217,7 +237,17 @@ The object being serialized.
 
 #### #root
 
-PR please :)
+Resource root which is included in `JSON` adapter. As you can see at [Adapters Document](adapters.md), `Attribute` adapter (default) and `JSON API` adapter does not include root at top level.
+By default, the resource root comes from the `model_name` of the serialized object's class.
+
+There are several ways to specify root:
+* [Overriding the root key](rendering.md#overriding-the-root-key)
+* [Setting `type`](serializers.md#type)
+* Specifying the `root` option, e.g. `root: 'specific_name'`, during the serializer's initialization:
+
+```ruby
+ActiveModelSerializers::SerializableResource.new(foo, root: 'bar')
+```
 
 #### #scope
 
@@ -313,6 +343,38 @@ So that when we render the `#edit` action, we'll get
 ```
 
 Where `can_edit` is `view_context.current_user.admin?` (true).
+
+You can also tell what to set as `serialization_scope` for specific actions.
+
+For example, use `admin_user` only for `Admin::PostSerializer` and `current_user` for rest.
+
+```ruby
+class PostsController < ActionController::Base
+
+  before_action only: :edit do
+    self.class.serialization_scope :admin_user
+  end
+
+  def show
+    render json: @post, serializer: PostSerializer
+  end
+
+  def edit
+    @post.save
+    render json: @post, serializer: Admin::PostSerializer
+  end
+
+  private
+
+  def admin_user
+    User.new(id: 2, name: 'Bob', admin: true)
+  end
+
+  def current_user
+    User.new(id: 2, name: 'Bob', admin: false)
+  end
+end
+```
 
 #### #read_attribute_for_serialization(key)
 

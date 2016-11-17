@@ -4,22 +4,46 @@ require 'tempfile'
 
 module ActiveModelSerializers
   class CacheTest < ActiveSupport::TestCase
-    UncachedAuthor = Class.new(Author) do
+    # Instead of a primitive cache key (i.e. a string), this class
+    # returns a list of objects that require to be expanded themselves.
+    class AuthorWithExpandableCacheElements < Author
+      # For the test purposes it's important that #to_s for HasCacheKey differs
+      # between instances, hence not a Struct.
+      class HasCacheKey
+        attr_reader :cache_key
+        def initialize(cache_key)
+          @cache_key = cache_key
+        end
+
+        def to_s
+          "HasCacheKey##{object_id}"
+        end
+      end
+
+      def cache_key
+        [
+          HasCacheKey.new(name),
+          HasCacheKey.new(id)
+        ]
+      end
+    end
+
+    class UncachedAuthor < Author
       # To confirm cache_key is set using updated_at and cache_key option passed to cache
       undef_method :cache_key
     end
 
-    Article = Class.new(::Model) do
+    class Article < ::Model
       # To confirm error is raised when cache_key is not set and cache_key option not passed to cache
       undef_method :cache_key
     end
 
-    ArticleSerializer = Class.new(ActiveModel::Serializer) do
+    class ArticleSerializer < ActiveModel::Serializer
       cache only: [:place], skip_digest: true
       attributes :title
     end
 
-    InheritedRoleSerializer = Class.new(RoleSerializer) do
+    class InheritedRoleSerializer < RoleSerializer
       cache key: 'inherited_role', only: [:name, :special_attribute]
       attribute :special_attribute
     end
@@ -104,6 +128,20 @@ module ActiveModelSerializers
       key = "#{uncached_author_serializer.class._cache_key}/#{uncached_author_serializer.object.id}-#{uncached_author_serializer.object.updated_at.strftime('%Y%m%d%H%M%S%9N')}"
       key = "#{key}/#{adapter.cache_key}"
       assert_equal(uncached_author_serializer.attributes.to_json, cache_store.fetch(key).to_json)
+    end
+
+    def test_cache_key_expansion
+      author = AuthorWithExpandableCacheElements.new(id: 10, name: 'hello')
+      same_author = AuthorWithExpandableCacheElements.new(id: 10, name: 'hello')
+      diff_author = AuthorWithExpandableCacheElements.new(id: 11, name: 'hello')
+
+      author_serializer = AuthorSerializer.new(author)
+      same_author_serializer = AuthorSerializer.new(same_author)
+      diff_author_serializer = AuthorSerializer.new(diff_author)
+      adapter = AuthorSerializer.serialization_adapter_instance
+
+      assert_equal(author_serializer.cache_key(adapter), same_author_serializer.cache_key(adapter))
+      refute_equal(author_serializer.cache_key(adapter), diff_author_serializer.cache_key(adapter))
     end
 
     def test_default_cache_key_fallback

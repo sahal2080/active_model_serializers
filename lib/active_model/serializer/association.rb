@@ -1,18 +1,33 @@
 module ActiveModel
   class Serializer
-    # This class hold all information about serializer's association.
+    # This class holds all information about serializer's association.
     #
     # @attr [Symbol] name
-    # @attr [ActiveModel::Serializer] serializer
     # @attr [Hash{Symbol => Object}] options
+    # @attr [block]
     #
     # @example
-    #  Association.new(:comments, CommentSummarySerializer)
+    #  Association.new(:comments, { serializer: CommentSummarySerializer })
     #
-    Association = Struct.new(:name, :serializer, :options, :links, :meta) do
+    class Association < Field
       # @return [Symbol]
       def key
         options.fetch(:key, name)
+      end
+
+      # @return [ActiveModel::Serializer, nil]
+      def serializer
+        options[:serializer]
+      end
+
+      # @return [Hash]
+      def links
+        options.fetch(:links) || {}
+      end
+
+      # @return [Hash, nil]
+      def meta
+        options[:meta]
       end
     end
   end
